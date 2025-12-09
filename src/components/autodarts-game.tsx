@@ -10,37 +10,49 @@ export function AutodartsGame({ state }: AutodartsGameProps) {
     const [totalScore, setTotalScore] = useState(0);
     const [lastThrow, setLastThrow] = useState("-");
 
-    // Track how many throws we've processed for the current turn
-    const processedThrowsRef = useRef(0);
+    // Track previous throws to detect changes
+    const prevThrowsRef = useRef<string[]>([]);
 
     useEffect(() => {
         if (!state) return;
 
         const currentThrows = state.throws || [];
-        const numCurrentThrows = currentThrows.length;
-        const prevNum = processedThrowsRef.current;
+        const currentNames = currentThrows.map(t => t.segment.name);
+        const prevNames = prevThrowsRef.current;
 
-        // Detect new turn (throws array cleared or smaller than before)
-        if (numCurrentThrows < prevNum) {
-            processedThrowsRef.current = 0;
+        // Check for undo (array shrunk)
+        if (currentNames.length < prevNames.length) {
+            // Find what was removed and subtract its points
+            const removedThrowName = prevNames[prevNames.length - 1];
+            const removedThrow = findThrowByName(removedThrowName);
+            if (removedThrow) {
+                setTotalScore(prev => Math.max(0, prev - removedThrow.points));
+            }
+            // Update last throw to the new last one
+            if (currentThrows.length > 0) {
+                setLastThrow(currentThrows[currentThrows.length - 1].segment.name);
+            } else {
+                setLastThrow("-");
+            }
         }
-
-        // Process new throws
-        if (currentThrows.length > processedThrowsRef.current) {
-            let newPoints = 0;
-            let lastThrowLabel = lastThrow;
-
-            for (let i = processedThrowsRef.current; i < currentThrows.length; i++) {
+        // Check for new throw (array grew)
+        else if (currentNames.length > prevNames.length) {
+            // Process only the new throws
+            for (let i = prevNames.length; i < currentThrows.length; i++) {
                 const t = currentThrows[i];
                 const points = t.segment.number * t.segment.multiplier;
-                newPoints += points;
-                lastThrowLabel = t.segment.name;
+                setTotalScore(prev => prev + points);
+                setLastThrow(t.segment.name);
             }
-
-            setTotalScore(prev => prev + newPoints);
-            setLastThrow(lastThrowLabel);
-            processedThrowsRef.current = currentThrows.length;
         }
+        // Check for turn reset (takeout finished - array cleared)
+        else if (currentNames.length === 0 && prevNames.length > 0 && state.status === 'Takeout finished') {
+            // Don't reset score on takeout, just update last throw
+            setLastThrow("-");
+        }
+
+        // Store current state for next comparison
+        prevThrowsRef.current = currentNames;
     }, [state]);
 
     const statusEmoji = state ? getStatusEmoji(state.status) : "⏳";
@@ -78,3 +90,16 @@ export function AutodartsGame({ state }: AutodartsGameProps) {
     );
 }
 
+// Helper to parse throw name back to points (for undo)
+function findThrowByName(name: string): { points: number } | null {
+    if (name === 'Miss') return { points: 0 };
+
+    const match = name.match(/^([STD])(\d+)$/);
+    if (!match) return null;
+
+    const [, prefix, numStr] = match;
+    const num = parseInt(numStr, 10);
+    const multiplier = prefix === 'T' ? 3 : prefix === 'D' ? 2 : 1;
+
+    return { points: num * multiplier };
+}

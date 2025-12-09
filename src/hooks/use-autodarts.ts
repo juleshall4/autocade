@@ -116,5 +116,13 @@ export const useAutodarts = () => {
         setLogs([]);
     }, []);
 
-    return { isConnected, latestState, logs, clearLogs };
+    // Function to inject simulated state (same format as Board Manager)
+    const simulateState = useCallback((state: AutodartsState) => {
+        // Log it just like a real message
+        addLog('state', state, JSON.stringify({ type: 'state', data: state }));
+        // Update the state
+        setLatestState(state);
+    }, [addLog]);
+
+    return { isConnected, latestState, logs, clearLogs, simulateState };
 };
