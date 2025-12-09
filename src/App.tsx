@@ -3,19 +3,26 @@ import { useAutodarts } from './hooks/use-autodarts';
 import { AutodartsGame } from './components/autodarts-game';
 import { ConsoleLog } from './components/console-log';
 import { SimulatorPanel } from './components/simulator-panel';
-import { Wifi, WifiOff, Gamepad2, Terminal, RotateCcw } from 'lucide-react';
+import { GameSelector } from './components/game-selector';
+import { X01Rules } from './components/x01-rules';
+import { X01Game } from './components/x01-game';
+import { getStatusEmoji } from './types/autodarts';
+import { Wifi, WifiOff, Gamepad2, Terminal, RotateCcw, List } from 'lucide-react';
+
+type AppView = 'game' | 'game-selector' | 'x01-rules' | 'x01-game';
 
 function App() {
   const { isConnected, latestState, logs, clearLogs, simulateState } = useAutodarts();
   const [showSimulator, setShowSimulator] = useState(false);
   const [showConsole, setShowConsole] = useState(false);
   const [gameKey, setGameKey] = useState(0);
+  const [currentView, setCurrentView] = useState<AppView>('game');
+  const [x01BaseScore, setX01BaseScore] = useState(501);
 
   // Reset everything - game state, logs, and simulator
   const handleReset = useCallback(() => {
-    setGameKey(prev => prev + 1); // Forces AutodartsGame to remount and reset
+    setGameKey(prev => prev + 1);
     clearLogs();
-    // Simulate a clean state
     simulateState({
       connected: true,
       running: true,
@@ -25,6 +32,51 @@ function App() {
       throws: [],
     });
   }, [clearLogs, simulateState]);
+
+  const handleSelectGame = (gameId: string) => {
+    if (gameId === 'x01') {
+      setCurrentView('x01-rules');
+    } else {
+      // Other games not implemented yet - just show generic game
+      setCurrentView('game');
+      handleReset();
+    }
+  };
+
+  const handleStartX01 = (baseScore: number) => {
+    setX01BaseScore(baseScore);
+    setCurrentView('x01-game');
+    handleReset();
+  };
+
+  const renderMainContent = () => {
+    switch (currentView) {
+      case 'game-selector':
+        return (
+          <GameSelector
+            onSelectGame={handleSelectGame}
+            onBack={() => setCurrentView('game')}
+          />
+        );
+      case 'x01-rules':
+        return (
+          <X01Rules
+            onStartGame={handleStartX01}
+            onBack={() => setCurrentView('game-selector')}
+          />
+        );
+      case 'x01-game':
+        return (
+          <X01Game
+            key={gameKey}
+            state={latestState}
+            baseScore={x01BaseScore}
+          />
+        );
+      default:
+        return <AutodartsGame key={gameKey} state={latestState} />;
+    }
+  };
 
   return (
     <div className="h-screen w-screen bg-black text-white flex font-mono overflow-hidden">
@@ -36,10 +88,30 @@ function App() {
         </div>
       )}
 
-      {/* Main Panel - Game Display */}
+      {/* Main Panel */}
       <div className={`${showConsole ? 'w-1/2' : 'w-full'} h-full flex flex-col relative`}>
-        {/* Top bar */}
+        {/* Status indicator - top left */}
+        <div className="absolute top-4 left-4 z-10">
+          <div className="px-2 py-1 rounded bg-zinc-800 text-sm">
+            {getStatusEmoji(latestState?.status || '')}
+            <span className="text-zinc-500 text-[10px] ml-1.5">{latestState?.status || 'Waiting'}</span>
+          </div>
+        </div>
+
+        {/* Top bar - right */}
         <div className="absolute top-4 right-4 flex items-center gap-2 text-xs z-10">
+          {/* Games Button */}
+          <button
+            onClick={() => setCurrentView('game-selector')}
+            className={`flex items-center gap-1.5 px-2 py-1 rounded ${currentView === 'game-selector' || currentView === 'x01-rules'
+                ? 'bg-blue-600 text-white'
+                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+              }`}
+          >
+            <List className="w-3 h-3" />
+            <span>Games</span>
+          </button>
+
           {/* Dev Console Toggle */}
           <button
             onClick={() => setShowConsole(!showConsole)}
@@ -76,14 +148,16 @@ function App() {
           </div>
         </div>
 
+        {/* Main Content */}
         <div className="flex-1 flex items-center justify-center">
-          <AutodartsGame key={gameKey} state={latestState} />
+          {renderMainContent()}
         </div>
       </div>
 
       {/* Simulator Panel */}
       {showSimulator && (
         <SimulatorPanel
+          currentState={latestState}
           onSimulateThrow={simulateState}
           onClose={() => setShowSimulator(false)}
         />

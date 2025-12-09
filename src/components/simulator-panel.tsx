@@ -3,6 +3,7 @@ import type { AutodartsSegment, AutodartsThrow, AutodartsState } from '../types/
 import { X } from 'lucide-react';
 
 interface SimulatorPanelProps {
+    currentState: AutodartsState | null;
     onSimulateThrow: (state: AutodartsState) => void;
     onClose: () => void;
 }
@@ -32,15 +33,19 @@ function createThrow(segment: AutodartsSegment): AutodartsThrow {
     };
 }
 
-export function SimulatorPanel({ onSimulateThrow, onClose }: SimulatorPanelProps) {
-    const [throws, setThrows] = useState<AutodartsThrow[]>([]);
+export function SimulatorPanel({ currentState, onSimulateThrow, onClose }: SimulatorPanelProps) {
     const [multiplier, setMultiplier] = useState<MultiplierMode>(1);
 
+    // Get current throws from the actual state (real + simulated)
+    const currentThrows = currentState?.throws || [];
+    const maxThrows = 3;
+    const canThrow = currentThrows.length < maxThrows;
+
     const handleThrow = (number: number) => {
+        if (!canThrow) return;
         const segment = createSegment(number, multiplier);
         const newThrow = createThrow(segment);
-        const newThrows = [...throws, newThrow];
-        setThrows(newThrows);
+        const newThrows = [...currentThrows, newThrow];
 
         const state: AutodartsState = {
             connected: true,
@@ -54,6 +59,7 @@ export function SimulatorPanel({ onSimulateThrow, onClose }: SimulatorPanelProps
     };
 
     const handleMiss = () => {
+        if (!canThrow) return;
         const segment: AutodartsSegment = {
             name: 'Miss',
             number: 0,
@@ -61,8 +67,7 @@ export function SimulatorPanel({ onSimulateThrow, onClose }: SimulatorPanelProps
             multiplier: 0,
         };
         const newThrow = createThrow(segment);
-        const newThrows = [...throws, newThrow];
-        setThrows(newThrows);
+        const newThrows = [...currentThrows, newThrow];
 
         const state: AutodartsState = {
             connected: true,
@@ -76,15 +81,14 @@ export function SimulatorPanel({ onSimulateThrow, onClose }: SimulatorPanelProps
     };
 
     const handleUndo = () => {
-        if (throws.length === 0) return;
-        const newThrows = throws.slice(0, -1);
-        setThrows(newThrows);
+        if (currentThrows.length === 0) return;
+        const newThrows = currentThrows.slice(0, -1);
 
         const state: AutodartsState = {
             connected: true,
             running: true,
             status: 'Throw',
-            event: 'Throw removed',
+            event: 'Throw removed',  // This signals it's an undo, should subtract points
             numThrows: newThrows.length,
             throws: newThrows,
         };
@@ -92,7 +96,6 @@ export function SimulatorPanel({ onSimulateThrow, onClose }: SimulatorPanelProps
     };
 
     const handleNextTurn = () => {
-        setThrows([]);
         setMultiplier(1); // Reset to single
 
         const state: AutodartsState = {
@@ -123,8 +126,8 @@ export function SimulatorPanel({ onSimulateThrow, onClose }: SimulatorPanelProps
                 <button
                     onClick={() => setMultiplier(1)}
                     className={`py-1.5 text-[10px] font-bold rounded transition-all ${multiplier === 1
-                            ? 'bg-white text-black'
-                            : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                        ? 'bg-white text-black'
+                        : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
                         }`}
                 >
                     Single
@@ -132,8 +135,8 @@ export function SimulatorPanel({ onSimulateThrow, onClose }: SimulatorPanelProps
                 <button
                     onClick={() => setMultiplier(2)}
                     className={`py-1.5 text-[10px] font-bold rounded transition-all ${multiplier === 2
-                            ? 'bg-blue-500 text-white'
-                            : 'bg-blue-900/50 text-blue-400 hover:bg-blue-900'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-blue-900/50 text-blue-400 hover:bg-blue-900'
                         }`}
                 >
                     Double
@@ -141,8 +144,8 @@ export function SimulatorPanel({ onSimulateThrow, onClose }: SimulatorPanelProps
                 <button
                     onClick={() => setMultiplier(3)}
                     className={`py-1.5 text-[10px] font-bold rounded transition-all ${multiplier === 3
-                            ? 'bg-purple-500 text-white'
-                            : 'bg-purple-900/50 text-purple-400 hover:bg-purple-900'
+                        ? 'bg-purple-500 text-white'
+                        : 'bg-purple-900/50 text-purple-400 hover:bg-purple-900'
                         }`}
                 >
                     Triple
@@ -153,37 +156,31 @@ export function SimulatorPanel({ onSimulateThrow, onClose }: SimulatorPanelProps
             <div className="grid grid-cols-3 gap-1 mb-2">
                 <button
                     onClick={handleMiss}
-                    className="py-1.5 text-[10px] font-bold bg-red-900/50 text-red-400 rounded hover:bg-red-900"
+                    disabled={!canThrow}
+                    className={`py-1.5 text-[10px] font-bold rounded ${canThrow ? 'bg-red-900/50 text-red-400 hover:bg-red-900' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'}`}
                 >
                     Miss
                 </button>
                 <button
-                    onClick={() => {
-                        const segment = createSegment(25, 1);
-                        const newThrow = createThrow(segment);
-                        const newThrows = [...throws, newThrow];
-                        setThrows(newThrows);
-                        onSimulateThrow({
-                            connected: true, running: true, status: 'Throw',
-                            event: 'Throw detected', numThrows: newThrows.length, throws: newThrows,
-                        });
-                    }}
-                    className="py-1.5 text-[10px] font-bold bg-green-900/50 text-green-400 rounded hover:bg-green-900"
+                    onClick={() => handleThrow(25)}
+                    disabled={!canThrow}
+                    className={`py-1.5 text-[10px] font-bold rounded ${canThrow ? 'bg-green-900/50 text-green-400 hover:bg-green-900' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'}`}
                 >
                     25
                 </button>
                 <button
                     onClick={() => {
+                        if (!canThrow) return;
                         const segment = createSegment(25, 2);
                         const newThrow = createThrow(segment);
-                        const newThrows = [...throws, newThrow];
-                        setThrows(newThrows);
+                        const newThrows = [...currentThrows, newThrow];
                         onSimulateThrow({
                             connected: true, running: true, status: 'Throw',
                             event: 'Throw detected', numThrows: newThrows.length, throws: newThrows,
                         });
                     }}
-                    className="py-1.5 text-[10px] font-bold bg-green-900/50 text-green-400 rounded hover:bg-green-900"
+                    disabled={!canThrow}
+                    className={`py-1.5 text-[10px] font-bold rounded ${canThrow ? 'bg-green-900/50 text-green-400 hover:bg-green-900' : 'bg-zinc-900 text-zinc-600 cursor-not-allowed'}`}
                 >
                     Bull
                 </button>
@@ -195,11 +192,14 @@ export function SimulatorPanel({ onSimulateThrow, onClose }: SimulatorPanelProps
                     <button
                         key={num}
                         onClick={() => handleThrow(num)}
-                        className={`py-1.5 text-[10px] font-bold rounded transition-all ${multiplier === 3
-                                ? 'bg-purple-900/50 text-purple-300 hover:bg-purple-900'
-                                : multiplier === 2
-                                    ? 'bg-blue-900/50 text-blue-300 hover:bg-blue-900'
-                                    : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+                        disabled={!canThrow}
+                        className={`py-1.5 text-[10px] font-bold rounded transition-all ${!canThrow
+                                ? 'bg-zinc-900 text-zinc-600 cursor-not-allowed'
+                                : multiplier === 3
+                                    ? 'bg-purple-900/50 text-purple-300 hover:bg-purple-900'
+                                    : multiplier === 2
+                                        ? 'bg-blue-900/50 text-blue-300 hover:bg-blue-900'
+                                        : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
                             }`}
                     >
                         {getPrefix()}{num}
@@ -209,7 +209,7 @@ export function SimulatorPanel({ onSimulateThrow, onClose }: SimulatorPanelProps
 
             {/* Current throws display */}
             <div className="text-[10px] text-zinc-500 mb-2">
-                Throws: {throws.map(t => t.segment.name).join(', ') || '-'}
+                Throws: {currentThrows.map(t => t.segment.name).join(', ') || '-'}
             </div>
 
             {/* Actions */}
