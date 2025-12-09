@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import type { AutodartsState } from "../types/autodarts";
+import { getStatusEmoji } from "../types/autodarts";
 
 interface AutodartsGameProps {
     state: AutodartsState | null;
@@ -22,8 +23,6 @@ export function AutodartsGame({ state }: AutodartsGameProps) {
         // Detect new turn (throws array cleared or smaller than before)
         if (numCurrentThrows < prevNum) {
             processedThrowsRef.current = 0;
-            // We could process new throws immediately if numCurrentThrows > 0 (unlikely on reset, but possible)
-            // For safety, let's just reset and wait for next update or process if there are already throws
         }
 
         // Process new throws
@@ -44,7 +43,8 @@ export function AutodartsGame({ state }: AutodartsGameProps) {
         }
     }, [state]);
 
-    // Handle manual reset? Maybe simpler for now.
+    const statusEmoji = state ? getStatusEmoji(state.status) : "⏳";
+    const statusText = state?.status || "Waiting...";
 
     return (
         <div className="flex flex-col items-center justify-center p-8 space-y-16">
@@ -64,11 +64,17 @@ export function AutodartsGame({ state }: AutodartsGameProps) {
                 </div>
             </div>
 
-            {/* Debug Info (Optional, user wanted bare bones but good for verification) 
-      <div className="text-xs text-zinc-700 absolute bottom-4">
-        {state ? state.status : 'Waiting...'}
-      </div>
-      */}
+            {/* Status */}
+            <div className="flex flex-col items-center">
+                <h3 className="text-zinc-500 uppercase tracking-widest text-sm mb-4">Status</h3>
+                <div className="text-6xl">
+                    {statusEmoji}
+                </div>
+                <div className="text-zinc-500 text-sm mt-2">
+                    {statusText}
+                </div>
+            </div>
         </div>
     );
 }
+

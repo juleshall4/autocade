@@ -57,10 +57,12 @@ export const useAutodarts = () => {
 
             ws.onmessage = (event) => {
                 try {
-                    const data = JSON.parse(event.data);
-                    console.log('Received Autodarts data:', data);
-                    if (mountedRef.current) {
-                        setLatestState(data);
+                    const message = JSON.parse(event.data);
+                    console.log('Received Autodarts message:', message);
+
+                    // Extract state from the message wrapper
+                    if (message.type === 'state' && message.data && mountedRef.current) {
+                        setLatestState(message.data);
                     }
                 } catch (e) {
                     console.error('Failed to parse Autodarts message:', e);
