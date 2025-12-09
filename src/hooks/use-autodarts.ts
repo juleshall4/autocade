@@ -1,12 +1,41 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import type { AutodartsState } from '../types/autodarts';
+
+export interface LogEntry {
+    id: number;
+    timestamp: string;
+    type: string;
+    data: unknown;
+    raw: string;
+}
+
+const MAX_LOG_SIZE = 1000;
 
 export const useAutodarts = () => {
     const [isConnected, setIsConnected] = useState(false);
     const [latestState, setLatestState] = useState<AutodartsState | null>(null);
+    const [logs, setLogs] = useState<LogEntry[]>([]);
     const wsRef = useRef<WebSocket | null>(null);
     const connectingRef = useRef(false);
     const mountedRef = useRef(true);
+    const logIdRef = useRef(0);
+
+    const addLog = useCallback((type: string, data: unknown, raw: string) => {
+        const entry: LogEntry = {
+            id: logIdRef.current++,
+            timestamp: new Date().toLocaleTimeString(),
+            type,
+            data,
+            raw,
+        };
+        setLogs((prev) => {
+            const newLogs = [...prev, entry];
+            if (newLogs.length > MAX_LOG_SIZE) {
+                return newLogs.slice(newLogs.length - MAX_LOG_SIZE);
+            }
+            return newLogs;
+        });
+    }, []);
 
     useEffect(() => {
         mountedRef.current = true;
@@ -15,33 +44,30 @@ export const useAutodarts = () => {
         const wsUrl = `${protocol}//${window.location.host}/api/events`;
 
         const connect = () => {
-            // Prevent duplicate connections
             if (connectingRef.current || wsRef.current?.readyState === WebSocket.OPEN) {
-                console.log('Already connected or connecting, skipping...');
                 return;
             }
 
             connectingRef.current = true;
-            console.log('Connecting to Autodarts WS:', wsUrl);
+            addLog('system', { action: 'connecting', url: wsUrl }, `Connecting to ${wsUrl}...`);
 
             const ws = new WebSocket(wsUrl);
             wsRef.current = ws;
 
             ws.onopen = () => {
-                console.log('Autodarts WS Connected!');
                 connectingRef.current = false;
                 if (mountedRef.current) {
                     setIsConnected(true);
+                    addLog('system', { action: 'connected' }, 'Connected!');
                 }
             };
 
             ws.onclose = (event) => {
-                console.log('Autodarts WS Disconnected. Code:', event.code, 'Reason:', event.reason || '(none)');
                 connectingRef.current = false;
                 wsRef.current = null;
                 if (mountedRef.current) {
                     setIsConnected(false);
-                    // Only reconnect if still mounted
+                    addLog('system', { action: 'disconnected', code: event.code }, `Disconnected (code: ${event.code})`);
                     setTimeout(() => {
                         if (mountedRef.current) {
                             connect();
@@ -50,36 +76,45 @@ export const useAutodarts = () => {
                 }
             };
 
-            ws.onerror = (err) => {
-                console.error('Autodarts WS Error:', err);
+            ws.onerror = () => {
                 connectingRef.current = false;
+                addLog('error', { action: 'error' }, 'Connection error');
             };
 
             ws.onmessage = (event) => {
                 try {
                     const message = JSON.parse(event.data);
-                    console.log('Received Autodarts message:', message);
+                    const messageType = message.type || 'unknown';
+
+                    // Skip motion_state - too spammy
+                    if (messageType === 'motion_state') {
+                        return;
+                    }
+
+                    // Log the raw message
+                    addLog(messageType, message.data || message, event.data);
 
                     // Extract state from the message wrapper
                     if (message.type === 'state' && message.data && mountedRef.current) {
                         setLatestState(message.data);
                     }
                 } catch (e) {
-                    console.error('Failed to parse Autodarts message:', e);
+                    addLog('parse-error', { error: String(e) }, event.data);
                 }
             };
         };
 
-        // Small delay to avoid React StrictMode double-mount race
         const timeoutId = setTimeout(connect, 100);
 
         return () => {
             mountedRef.current = false;
             clearTimeout(timeoutId);
-            // Don't aggressively close on cleanup - let it stay open
-            // This helps with React StrictMode which unmounts and remounts quickly
         };
+    }, [addLog]);
+
+    const clearLogs = useCallback(() => {
+        setLogs([]);
     }, []);
 
-    return { isConnected, latestState };
+    return { isConnected, latestState, logs, clearLogs };
 };
