@@ -1,20 +1,26 @@
 import { useState, useCallback } from 'react';
 import { useAutodarts } from './hooks/use-autodarts';
+import { usePlayers } from './hooks/use-players';
 import { AutodartsGame } from './components/autodarts-game';
 import { ConsoleLog } from './components/console-log';
 import { SimulatorPanel } from './components/simulator-panel';
 import { GameSelector } from './components/game-selector';
 import { X01Rules } from './components/x01-rules';
 import { X01Game } from './components/x01-game';
+import { PlayerConfig } from './components/player-config';
+import { PlayerList } from './components/player-list';
 import { getStatusEmoji } from './types/autodarts';
-import { Wifi, WifiOff, Gamepad2, Terminal, RotateCcw, List } from 'lucide-react';
+import { Wifi, WifiOff, Gamepad2, Terminal, RotateCcw, List, Users } from 'lucide-react';
 
 type AppView = 'game' | 'game-selector' | 'x01-rules' | 'x01-game';
 
 function App() {
   const { isConnected, latestState, logs, clearLogs, simulateState } = useAutodarts();
+  const { players, activePlayers, addPlayer, removePlayer, updatePlayerName, updatePlayerPhoto, togglePlayerActive } = usePlayers();
+
   const [showSimulator, setShowSimulator] = useState(false);
   const [showConsole, setShowConsole] = useState(false);
+  const [showPlayerConfig, setShowPlayerConfig] = useState(false);
   const [gameKey, setGameKey] = useState(0);
   const [currentView, setCurrentView] = useState<AppView>('game');
   const [x01BaseScore, setX01BaseScore] = useState(501);
@@ -49,6 +55,9 @@ function App() {
     handleReset();
   };
 
+  // Check if we should show player list (only in generic game view, not X01 which shows inline)
+  const showPlayerList = currentView === 'game';
+
   const renderMainContent = () => {
     switch (currentView) {
       case 'game-selector':
@@ -71,6 +80,7 @@ function App() {
             key={gameKey}
             state={latestState}
             baseScore={x01BaseScore}
+            players={activePlayers}
           />
         );
       default:
@@ -104,12 +114,21 @@ function App() {
           <button
             onClick={() => setCurrentView('game-selector')}
             className={`flex items-center gap-1.5 px-2 py-1 rounded ${currentView === 'game-selector' || currentView === 'x01-rules'
-                ? 'bg-blue-600 text-white'
-                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+              ? 'bg-blue-600 text-white'
+              : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
               }`}
           >
             <List className="w-3 h-3" />
             <span>Games</span>
+          </button>
+
+          {/* Players Button */}
+          <button
+            onClick={() => setShowPlayerConfig(true)}
+            className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
+          >
+            <Users className="w-3 h-3" />
+            <span>Players</span>
           </button>
 
           {/* Dev Console Toggle */}
@@ -149,7 +168,11 @@ function App() {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex flex-col items-center justify-center">
+          {/* Player List - shown above game content */}
+          {showPlayerList && activePlayers.length > 0 && (
+            <PlayerList players={activePlayers} />
+          )}
           {renderMainContent()}
         </div>
       </div>
@@ -160,6 +183,19 @@ function App() {
           currentState={latestState}
           onSimulateThrow={simulateState}
           onClose={() => setShowSimulator(false)}
+        />
+      )}
+
+      {/* Player Config Modal */}
+      {showPlayerConfig && (
+        <PlayerConfig
+          players={players}
+          onAddPlayer={addPlayer}
+          onRemovePlayer={removePlayer}
+          onUpdateName={updatePlayerName}
+          onUpdatePhoto={updatePlayerPhoto}
+          onToggleActive={togglePlayerActive}
+          onClose={() => setShowPlayerConfig(false)}
         />
       )}
     </div>
