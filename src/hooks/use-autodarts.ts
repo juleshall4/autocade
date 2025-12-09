@@ -58,6 +58,7 @@ export const useAutodarts = () => {
             ws.onmessage = (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    console.log('Received Autodarts data:', data);
                     if (mountedRef.current) {
                         setLatestState(data);
                     }
