@@ -5,7 +5,7 @@ import { AutodartsGame } from './components/autodarts-game';
 import { ConsoleLog } from './components/console-log';
 import { SimulatorPanel } from './components/simulator-panel';
 import { GameSelector } from './components/game-selector';
-import { X01Rules } from './components/x01-rules';
+import { X01Rules, type X01Settings } from './components/x01-rules';
 import { X01Game } from './components/x01-game';
 import { PlayerConfig } from './components/player-config';
 import { PlayerList } from './components/player-list';
@@ -23,7 +23,14 @@ function App() {
   const [showPlayerConfig, setShowPlayerConfig] = useState(false);
   const [gameKey, setGameKey] = useState(0);
   const [currentView, setCurrentView] = useState<AppView>('game');
-  const [x01BaseScore, setX01BaseScore] = useState(501);
+  const [x01Settings, setX01Settings] = useState<X01Settings>({
+    baseScore: 501,
+    inMode: 'single',
+    outMode: 'double',
+    matchMode: 'off',
+    legsToWin: 3,
+    setsToWin: 3,
+  });
 
   // Reset everything - game state, logs, and simulator
   const handleReset = useCallback(() => {
@@ -49,8 +56,8 @@ function App() {
     }
   };
 
-  const handleStartX01 = (baseScore: number) => {
-    setX01BaseScore(baseScore);
+  const handleStartX01 = (settings: X01Settings) => {
+    setX01Settings(settings);
     setCurrentView('x01-game');
     handleReset();
   };
@@ -79,8 +86,12 @@ function App() {
           <X01Game
             key={gameKey}
             state={latestState}
-            baseScore={x01BaseScore}
+            settings={x01Settings}
             players={activePlayers}
+            onPlayAgain={() => {
+              handleReset();
+              setCurrentView('x01-rules');
+            }}
           />
         );
       default:
