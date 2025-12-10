@@ -3,6 +3,7 @@ import { Target } from 'lucide-react';
 
 export type X01Mode = 'single' | 'double';
 export type MatchMode = 'off' | 'legs' | 'sets';
+export type StartingOrder = 'random' | 'bull-off';
 
 export interface X01Settings {
     baseScore: number;
@@ -11,28 +12,39 @@ export interface X01Settings {
     matchMode: MatchMode;
     legsToWin: number;
     setsToWin: number;
+    startingOrder: StartingOrder;
 }
 
 interface X01RulesProps {
-    onStartGame: (settings: X01Settings) => void;
+    onNext: (settings: X01Settings) => void;
     onBack: () => void;
+    accentClass?: string;
+    accentBorderClass?: string;
 }
 
 const BASE_SCORES = [121, 170, 301, 501, 701, 901];
 const LEGS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 const SETS_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
 
-export function X01Rules({ onStartGame, onBack }: X01RulesProps) {
+export function X01Rules({ onNext, onBack, accentClass = 'bg-blue-500/80', accentBorderClass = 'border-blue-400/50' }: X01RulesProps) {
     const [baseScore, setBaseScore] = useState(501);
     const [inMode, setInMode] = useState<X01Mode>('single');
     const [outMode, setOutMode] = useState<X01Mode>('double');
     const [matchMode, setMatchMode] = useState<MatchMode>('off');
     const [legsToWin, setLegsToWin] = useState(3);
     const [setsToWin, setSetsToWin] = useState(3);
+    const [startingOrder, setStartingOrder] = useState<StartingOrder>('random');
 
-    const handleStart = () => {
-        onStartGame({ baseScore, inMode, outMode, matchMode, legsToWin, setsToWin });
+    const handleNext = () => {
+        onNext({ baseScore, inMode, outMode, matchMode, legsToWin, setsToWin, startingOrder });
     };
+
+    // Glassy button style with theme-aware accent
+    const optionBtn = (active: boolean) =>
+        `px-3 py-2 rounded font-bold text-sm transition-all backdrop-blur-md border ${active
+            ? `${accentClass} ${accentBorderClass} text-white`
+            : 'bg-white/10 border-white/10 text-zinc-300 hover:bg-white/20'
+        }`;
 
     return (
         <div className="h-full flex flex-col items-center justify-center p-8">
@@ -53,10 +65,7 @@ export function X01Rules({ onStartGame, onBack }: X01RulesProps) {
                             <button
                                 key={score}
                                 onClick={() => setBaseScore(score)}
-                                className={`px-3 py-2 rounded font-bold text-sm transition-all ${baseScore === score
-                                        ? 'bg-blue-600 text-white'
-                                        : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                                    }`}
+                                className={optionBtn(baseScore === score)}
                             >
                                 {score}
                             </button>
@@ -69,23 +78,11 @@ export function X01Rules({ onStartGame, onBack }: X01RulesProps) {
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         In Mode
                     </label>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setInMode('single')}
-                            className={`px-4 py-2 rounded font-bold transition-all ${inMode === 'single'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                                }`}
-                        >
+                    <div className="flex flex-wrap gap-2">
+                        <button onClick={() => setInMode('single')} className={optionBtn(inMode === 'single')}>
                             Single
                         </button>
-                        <button
-                            onClick={() => setInMode('double')}
-                            className={`px-4 py-2 rounded font-bold transition-all ${inMode === 'double'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                                }`}
-                        >
+                        <button onClick={() => setInMode('double')} className={optionBtn(inMode === 'double')}>
                             Double
                         </button>
                     </div>
@@ -96,23 +93,11 @@ export function X01Rules({ onStartGame, onBack }: X01RulesProps) {
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Out Mode
                     </label>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setOutMode('single')}
-                            className={`px-4 py-2 rounded font-bold transition-all ${outMode === 'single'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                                }`}
-                        >
+                    <div className="flex flex-wrap gap-2">
+                        <button onClick={() => setOutMode('single')} className={optionBtn(outMode === 'single')}>
                             Single
                         </button>
-                        <button
-                            onClick={() => setOutMode('double')}
-                            className={`px-4 py-2 rounded font-bold transition-all ${outMode === 'double'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                                }`}
-                        >
+                        <button onClick={() => setOutMode('double')} className={optionBtn(outMode === 'double')}>
                             Double
                         </button>
                     </div>
@@ -123,32 +108,14 @@ export function X01Rules({ onStartGame, onBack }: X01RulesProps) {
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Match Mode
                     </label>
-                    <div className="flex gap-2">
-                        <button
-                            onClick={() => setMatchMode('off')}
-                            className={`px-4 py-2 rounded font-bold transition-all ${matchMode === 'off'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                                }`}
-                        >
+                    <div className="flex flex-wrap gap-2">
+                        <button onClick={() => setMatchMode('off')} className={optionBtn(matchMode === 'off')}>
                             Off
                         </button>
-                        <button
-                            onClick={() => setMatchMode('legs')}
-                            className={`px-4 py-2 rounded font-bold transition-all ${matchMode === 'legs'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                                }`}
-                        >
+                        <button onClick={() => setMatchMode('legs')} className={optionBtn(matchMode === 'legs')}>
                             Legs
                         </button>
-                        <button
-                            onClick={() => setMatchMode('sets')}
-                            className={`px-4 py-2 rounded font-bold transition-all ${matchMode === 'sets'
-                                    ? 'bg-blue-600 text-white'
-                                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-                                }`}
-                        >
+                        <button onClick={() => setMatchMode('sets')} className={optionBtn(matchMode === 'sets')}>
                             Sets
                         </button>
                     </div>
@@ -157,16 +124,16 @@ export function X01Rules({ onStartGame, onBack }: X01RulesProps) {
                 {/* Legs to Win (shown for legs and sets modes) */}
                 {matchMode !== 'off' && (
                     <div>
-                        <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
+                        <label className="text-zinc-400 uppercase tracking-widest text-xs block mb-2">
                             {matchMode === 'sets' ? 'Legs per Set' : 'First to (Legs)'}
                         </label>
                         <select
                             value={legsToWin}
                             onChange={e => setLegsToWin(Number(e.target.value))}
-                            className="w-full bg-zinc-800 text-white px-4 py-2 rounded font-bold border border-zinc-700 focus:border-blue-500 outline-none"
+                            className="w-full bg-white/10 backdrop-blur-md text-white px-4 py-2 rounded font-bold border border-white/10 focus:border-white/30 outline-none text-sm"
                         >
                             {LEGS_OPTIONS.map(n => (
-                                <option key={n} value={n}>{n}</option>
+                                <option key={n} value={n} className="bg-zinc-900">{n}</option>
                             ))}
                         </select>
                     </div>
@@ -175,33 +142,48 @@ export function X01Rules({ onStartGame, onBack }: X01RulesProps) {
                 {/* Sets to Win (shown only for sets mode) */}
                 {matchMode === 'sets' && (
                     <div>
-                        <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
+                        <label className="text-zinc-400 uppercase tracking-widest text-xs block mb-2">
                             First to (Sets)
                         </label>
                         <select
                             value={setsToWin}
                             onChange={e => setSetsToWin(Number(e.target.value))}
-                            className="w-full bg-zinc-800 text-white px-4 py-2 rounded font-bold border border-zinc-700 focus:border-blue-500 outline-none"
+                            className="w-full bg-white/10 backdrop-blur-md text-white px-4 py-2 rounded font-bold border border-white/10 focus:border-white/30 outline-none text-sm"
                         >
                             {SETS_OPTIONS.map(n => (
-                                <option key={n} value={n}>{n}</option>
+                                <option key={n} value={n} className="bg-zinc-900">{n}</option>
                             ))}
                         </select>
                     </div>
                 )}
+
+                {/* Starting Order */}
+                <div>
+                    <label className="text-zinc-400 uppercase tracking-widest text-xs block mb-2">
+                        Starting Order
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                        <button onClick={() => setStartingOrder('random')} className={optionBtn(startingOrder === 'random')}>
+                            Random
+                        </button>
+                        <button onClick={() => setStartingOrder('bull-off')} className={optionBtn(startingOrder === 'bull-off')}>
+                            Bull Off
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            {/* Start Button */}
+            {/* Next Button */}
             <button
-                onClick={handleStart}
-                className="px-8 py-4 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-500 transition-colors text-lg"
+                onClick={handleNext}
+                className={`px-8 py-4 ${accentClass} ${accentBorderClass} text-white font-bold rounded-lg hover:brightness-110 transition-all text-lg backdrop-blur-md border`}
             >
-                Start Game
+                Next →
             </button>
 
             <button
                 onClick={onBack}
-                className="mt-6 px-4 py-2 text-sm text-zinc-500 hover:text-white transition-colors"
+                className="mt-6 px-4 py-2 text-sm text-zinc-400 hover:text-white transition-colors"
             >
                 ← Back to Games
             </button>

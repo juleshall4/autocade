@@ -47,6 +47,7 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'TikTok Sans', sans-serif;
   }
 }
 

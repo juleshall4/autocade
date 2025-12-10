@@ -40,8 +40,16 @@ export const useAutodarts = () => {
     useEffect(() => {
         mountedRef.current = true;
 
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/api/events`;
+        // Get the Autodarts IP from localStorage
+        const autodartsIP = localStorage.getItem('autodartsIP');
+        if (!autodartsIP) {
+            addLog('system', { action: 'no-ip' }, 'No Autodarts IP configured. Please set up your IP address.');
+            return;
+        }
+
+        // Connect directly to Autodarts Board Manager WebSocket
+        // Board Manager runs on port 3180 with /api/events endpoint
+        const wsUrl = `ws://${autodartsIP}:3180/api/events`;
 
         const connect = () => {
             if (connectingRef.current || wsRef.current?.readyState === WebSocket.OPEN) {
