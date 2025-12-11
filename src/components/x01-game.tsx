@@ -14,6 +14,8 @@ interface X01GameProps {
     onPlayAgain: () => void;
     onLegStart: () => void;
     themeGlow?: string;
+    playerListScale?: number;
+    gameViewScale?: number;
 }
 
 interface PlayerLegData {
@@ -69,7 +71,7 @@ function createMatchData(playerId: string): PlayerMatchData {
     };
 }
 
-export function X01Game({ state, settings, players, onPlayAgain, onLegStart, themeGlow }: X01GameProps) {
+export function X01Game({ state, settings, players, onPlayAgain, onLegStart, themeGlow, playerListScale = 100, gameViewScale = 100 }: X01GameProps) {
     const { baseScore, inMode, outMode, matchMode, legsToWin, setsToWin } = settings;
 
     // Caller for score announcements
@@ -206,14 +208,20 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
         }
     }, [legData, matchData, matchMode, legsToWin, setsToWin]);
 
-    // Update score at turn start ref
+    // Update score at turn start ref and announce checkout if in range
     useEffect(() => {
         if (currentPlayerLegData) {
             scoreAtTurnStartRef.current = currentPlayerLegData.remaining;
+            // If player is in checkout range at start of turn, announce "you need X"
+            if (currentPlayerLegData.remaining <= 170 && currentPlayerLegData.remaining >= 2 && !legWinnerId) {
+                caller.callRemaining(currentPlayerLegData.remaining);
+            }
         }
-    }, [currentPlayerIndex, currentPlayerLegData]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [currentPlayerIndex]);
 
     // Reinitialize on player/settings change
+    const hasCalledGameOnRef = useRef(false);
     useEffect(() => {
         setLegData(players.map(p => createLegData(p.id, baseScore, inMode === 'single')));
         setMatchData(players.map(p => createMatchData(p.id)));
@@ -222,6 +230,20 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
         setCurrentSet(1);
         setMatchWinnerId(null);
         setLegWinnerId(null);
+        // Call "Game on!" when match starts (only once per reinit)
+        if (!hasCalledGameOnRef.current) {
+            hasCalledGameOnRef.current = true;
+            caller.callGameOn();
+            // If starting score is in checkout range, also announce "you need X" after delay
+            if (baseScore <= 170 && baseScore >= 2) {
+                setTimeout(() => {
+                    caller.callRemaining(baseScore);
+                }, 3000);
+            }
+        }
+        // Reset on next reinit
+        return () => { hasCalledGameOnRef.current = false; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [players.length, baseScore, inMode]);
 
     // Main game logic
@@ -243,14 +265,6 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
         // Skip if this is a fresh leg (player remaining == baseScore and no throws processed yet)
         const isFreshLeg = currentPlayerLegData?.remaining === baseScore && turnScore === 0;
         if (isTurnEnd && currentNames.length === 0 && prevNames.length > 0 && !isFreshLeg) {
-            // Calculate new remaining for next player checkout announcement
-            const newRemaining = isBust ? currentPlayerLegData?.remaining || 0 : (currentPlayerLegData?.remaining || 0) - turnScore;
-
-            // Announce the turn score
-            if (!isBust && turnScore > 0) {
-                caller.callScore(turnScore);
-            }
-
             setLegData(prev => prev.map(ld => {
                 if (ld.playerId !== currentPlayer.id) return ld;
                 return {
@@ -261,14 +275,6 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
                     highestTurn: Math.max(ld.highestTurn, isBust ? 0 : turnScore),
                 };
             }));
-
-            // Announce checkout if new remaining is <= 170 (for next turn)
-            if (!isBust && newRemaining <= 170 && newRemaining >= 2) {
-                // Small delay so score is announced first
-                setTimeout(() => {
-                    caller.callRemaining(newRemaining);
-                }, 800);
-            }
 
             setCurrentPlayerIndex(prev => (prev + 1) % players.length);
             setTurnScore(0);
@@ -300,13 +306,18 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
         }
         // CASE 4: New throw
         else if (currentNames.length > prevNames.length && !isBust && currentPlayerLegData) {
+            // Track accumulated score within the loop (React state doesn't update mid-loop)
+            let accumulatedScore = turnScore;
+
             for (let i = prevNames.length; i < Math.min(currentThrows.length, MAX_THROWS_PER_TURN); i++) {
                 const t = currentThrows[i];
                 const points = t.segment.number * t.segment.multiplier;
+                // Inner bull (D25 / Bull) is multiplier=2, number=25 - valid double finish
                 const isDouble = t.segment.multiplier === 2;
                 const isTriple = t.segment.multiplier === 3;
                 const isSingle = t.segment.multiplier === 1 && points > 0;
                 const isMiss = points === 0;
+                const isThirdDart = i === 2; // 0-indexed, so 2 is the 3rd dart
 
                 setLegData(prev => prev.map(ld => {
                     if (ld.playerId !== currentPlayer.id) return ld;
@@ -324,7 +335,7 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
                 // Check if player needs to start
                 if (!currentPlayerLegData.hasStarted) {
                     if (inMode === 'double' && !isDouble) {
-                        setTurnThrows(prev => [...prev.slice(0, 2), t.segment.name]);
+                        setTurnThrows(prev => [...prev, t.segment.name].slice(0, 3));
                         continue;
                     }
                     setLegData(prev => prev.map(ld =>
@@ -332,47 +343,78 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
                     ));
                 }
 
-                const newTurnScore = turnScore + points;
-                const projectedRemaining = currentPlayerLegData.remaining - newTurnScore;
+                // Use accumulated score, not React state
+                accumulatedScore += points;
+                const projectedRemaining = currentPlayerLegData.remaining - accumulatedScore;
 
                 if (projectedRemaining === 0) {
                     if (outMode === 'double' && !isDouble) {
+                        // Bust on checkout attempt
                         setIsBust(true);
-                        setTurnScore(newTurnScore);
-                        setTurnThrows(prev => [...prev.slice(0, 2), t.segment.name]);
+                        setTurnScore(accumulatedScore);
+                        setTurnThrows(prev => [...prev, t.segment.name].slice(0, 3));
+                        if (caller.settings.announceBusts) {
+                            caller.callNoScore();
+                        }
                     } else {
-                        // LEG WIN!
-                        setTurnScore(newTurnScore);
-                        setTurnThrows(prev => [...prev.slice(0, 2), t.segment.name]);
+                        // LEG WIN! - call "game shot" (no score announcement)
+                        setTurnScore(accumulatedScore);
+                        setTurnThrows(prev => [...prev, t.segment.name].slice(0, 3));
                         setLegData(prev => prev.map(ld =>
                             ld.playerId === currentPlayer.id
                                 ? { ...ld, remaining: 0, isWinner: true }
                                 : ld
                         ));
+                        caller.callGameShot();
                         handleLegWin(currentPlayer.id);
                     }
                 } else if (projectedRemaining < 0 || projectedRemaining === 1) {
+                    // Bust
                     setIsBust(true);
-                    setTurnScore(newTurnScore);
-                    setTurnThrows(prev => [...prev.slice(0, 2), t.segment.name]);
+                    setTurnScore(accumulatedScore);
+                    setTurnThrows(prev => [...prev, t.segment.name].slice(0, 3));
+                    // Only call "no score" if busts announcement is enabled
+                    if (caller.settings.announceBusts) {
+                        caller.callNoScore();
+                    }
                 } else {
-                    setTurnScore(newTurnScore);
-                    setTurnThrows(prev => [...prev.slice(0, 2), t.segment.name]);
+                    setTurnScore(accumulatedScore);
+                    setTurnThrows(prev => [...prev, t.segment.name].slice(0, 3));
+
+                    // Call individual dart score if announceAllDarts is enabled
+                    if (caller.settings.announceAllDarts) {
+                        caller.callScore(points);
+                    }
+
+                    // Call round total after 3rd dart
+                    if (isThirdDart) {
+                        // If all 3 darts missed (score is 0), call "no score" (if busts enabled)
+                        if (accumulatedScore === 0) {
+                            if (caller.settings.announceBusts) {
+                                caller.callNoScore();
+                            }
+                        } else if (caller.settings.announceRoundTotal) {
+                            // Only announce round total if setting is enabled
+                            caller.callScore(accumulatedScore);
+                        }
+                    }
                 }
             }
         }
 
         prevThrowsRef.current = currentNames;
-    }, [state, turnScore, currentPlayer, currentPlayerLegData, isBust, legWinnerId, matchWinnerId, players.length, inMode, outMode, handleLegWin]);
+    }, [state, turnScore, currentPlayer, currentPlayerLegData, isBust, legWinnerId, matchWinnerId, players.length, inMode, outMode, handleLegWin, caller]);
 
     const projectedScore = currentPlayerLegData
         ? (isBust ? currentPlayerLegData.remaining : currentPlayerLegData.remaining - turnScore)
         : 0;
 
-    const dartsRemaining = MAX_THROWS_PER_TURN - (state?.throws?.length || 0);
+    // Calculate checkout based on current remaining score and darts left in turn
+    const dartsThrown = turnThrows.length;
+    const dartsRemaining = MAX_THROWS_PER_TURN - dartsThrown;
     const checkoutSuggestions = projectedScore <= 170 && projectedScore >= 2 &&
-        !isBust && !legWinnerId && currentPlayerLegData?.hasStarted
-        ? getCheckoutSuggestions(projectedScore, Math.max(1, dartsRemaining))
+        !isBust && !legWinnerId && currentPlayerLegData?.hasStarted && dartsRemaining > 0
+        ? getCheckoutSuggestions(projectedScore, dartsRemaining)
         : [];
 
     // Victory overlay (shows first when match is won)
@@ -540,78 +582,86 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
             )}
 
             {/* Player leg scores */}
-            <div className="flex items-center gap-4 mb-4">
-                {players.map((player, idx) => {
-                    const ld = legData.find(d => d.playerId === player.id);
-                    const isActive = idx === currentPlayerIndex;
-                    return (
-                        <div key={player.id} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all backdrop-blur-md border-2 ${isActive ? 'bg-white/15 text-white scale-110 border-white' : 'bg-white/10 text-zinc-300 border-white/10'}`}>
-                            <div className="w-10 h-10 rounded-full bg-zinc-700/50 overflow-hidden shrink-0">
-                                {player.photo ? (
-                                    <img src={player.photo} alt={player.name} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-lg font-bold opacity-50">
-                                        {player.name.charAt(0).toUpperCase()}
-                                    </div>
-                                )}
-                            </div>
-                            <div>
-                                <div className="text-xs uppercase tracking-wider opacity-75">
-                                    {player.name}
-                                    {!ld?.hasStarted && inMode === 'double' && <span className="ml-1 text-yellow-400">(waiting)</span>}
+            <div style={{ transform: `scale(${playerListScale / 100})`, transformOrigin: 'top center' }}>
+                <div className="flex items-center gap-4 mb-4">
+                    {players.map((player, idx) => {
+                        const ld = legData.find(d => d.playerId === player.id);
+                        const isActive = idx === currentPlayerIndex;
+                        return (
+                            <div key={player.id} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all backdrop-blur-md border-2 ${isActive ? 'bg-white/15 text-white scale-110 border-white' : 'bg-white/10 text-zinc-300 border-white/10'}`}>
+                                <div className="w-10 h-10 rounded-full bg-zinc-700/50 overflow-hidden shrink-0">
+                                    {player.photo ? (
+                                        <img src={player.photo} alt={player.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-lg font-bold opacity-50">
+                                            {player.name.charAt(0).toUpperCase()}
+                                        </div>
+                                    )}
                                 </div>
-                                <div className="text-2xl font-bold tabular-nums">{ld?.remaining ?? baseScore}</div>
+                                <div>
+                                    <div className="text-xs uppercase tracking-wider opacity-75">
+                                        {player.name}
+                                        {!ld?.hasStarted && inMode === 'double' && <span className="ml-1 text-yellow-400">(waiting)</span>}
+                                    </div>
+                                    <div className="text-2xl font-bold tabular-nums">{ld?.remaining ?? baseScore}</div>
+                                </div>
                             </div>
-                        </div>
-                    );
-                })}
+                        );
+                    })}
+                </div>
             </div>
 
             {/* Main game area - Dartboard and Score side by side */}
-            <div className="flex items-center justify-center gap-12">
-                {/* Dartboard */}
-                <Dartboard size={300} glowColor={themeGlow} />
+            <div style={{ transform: `scale(${gameViewScale / 100})`, transformOrigin: 'top center' }}>
+                <div className="flex items-center justify-center gap-12">
+                    {/* Dartboard */}
+                    <Dartboard
+                        size={300}
+                        glowColor={themeGlow}
+                        highlightSegment={checkoutSuggestions.length > 0 ? checkoutSuggestions[0][0] : undefined}
+                    />
 
-                {/* Score and throw boxes */}
-                <div className="flex flex-col items-center gap-4">
-                    <div className={`text-9xl font-bold tabular-nums leading-none ${isBust ? 'text-red-500' : 'text-white'}`}>
-                        {isBust ? 'BUST' : projectedScore}
-                    </div>
-
-                    {/* 3-Box Throw Display */}
-                    <div className="flex items-center justify-center gap-4">
-                        {[0, 1, 2].map(idx => {
-                            const throwName = turnThrows[idx];
-                            const checkoutThrow = checkoutSuggestions.length > 0 && !throwName ? checkoutSuggestions[0][idx - turnThrows.length] : null;
-
-                            return (
-                                <div
-                                    key={idx}
-                                    className={`w-20 h-20 rounded-xl border-2 flex items-center justify-center transition-all backdrop-blur-md ${throwName
-                                        ? 'bg-white/15 border-white/30 text-white'
-                                        : checkoutThrow
-                                            ? 'bg-green-500/10 border-green-500/30 text-green-400'
-                                            : 'bg-white/5 border-white/10 text-zinc-600'
-                                        }`}
-                                >
-                                    <span className="text-2xl font-bold">
-                                        {throwName || checkoutThrow || ''}
-                                    </span>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Turn score */}
-                    <div className={`text-3xl font-bold tabular-nums ${isBust ? 'text-red-400' : 'text-zinc-400'}`}>
-                        {turnScore > 0 ? `+${turnScore}` : ''}
-                    </div>
-
-                    {isBust && (
-                        <div className="text-red-400 text-sm">
-                            {outMode === 'double' ? 'Must finish on a double! ' : ''}Reverts to {scoreAtTurnStartRef.current}
+                    {/* Score and throw boxes */}
+                    <div className="flex flex-col items-center gap-4">
+                        <div className={`text-9xl font-bold tabular-nums leading-none ${isBust ? 'text-red-500' : 'text-white'}`}>
+                            {isBust ? 'BUST' : projectedScore}
                         </div>
-                    )}
+
+                        {/* 3-Box Throw Display */}
+                        <div className="flex items-center justify-center gap-4">
+                            {[0, 1, 2].map(idx => {
+                                const throwName = turnThrows[idx];
+                                const checkoutThrow = checkoutSuggestions.length > 0 && !throwName ? checkoutSuggestions[0][idx - turnThrows.length] : null;
+
+                                return (
+                                    <div
+                                        key={idx}
+                                        className={`w-20 h-20 rounded-xl border-2 flex items-center justify-center transition-all backdrop-blur-md ${throwName
+                                            ? 'bg-white/15 border-white/30 text-white'
+                                            : checkoutThrow
+                                                ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                                                : 'bg-white/5 border-white/10 text-zinc-600'
+                                            }`}
+                                    >
+                                        <span className="text-2xl font-bold">
+                                            {throwName || checkoutThrow || ''}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        {/* Turn score */}
+                        <div className={`text-3xl font-bold tabular-nums ${isBust ? 'text-red-400' : 'text-zinc-400'}`}>
+                            {turnScore > 0 ? `+${turnScore}` : ''}
+                        </div>
+
+                        {isBust && (
+                            <div className="text-red-400 text-sm">
+                                {outMode === 'double' ? 'Must finish on a double! ' : ''}Reverts to {scoreAtTurnStartRef.current}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>

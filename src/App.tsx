@@ -55,7 +55,7 @@ function App() {
     } catch (e) {
       console.error('Failed to load appearance settings:', e);
     }
-    return { showConnectionStatus: true, showBoardStatus: true, showDevTools: true, theme: 'midnight' };
+    return { showConnectionStatus: true, showBoardStatus: true, showDevTools: true, theme: 'midnight', playerListScale: 120, gameViewScale: 120 };
   };
 
   const [appearance, setAppearance] = useState<AppearanceSettings>(loadAppearanceSettings);
@@ -161,6 +161,8 @@ function App() {
               });
             }}
             themeGlow={currentTheme?.glow}
+            playerListScale={appearance.playerListScale}
+            gameViewScale={appearance.gameViewScale}
           />
         );
       default:
@@ -199,6 +201,12 @@ function App() {
       {/* Main Panel */}
       <div className={`${showConsole ? 'w-1/2' : 'w-full'} h-full flex flex-col relative`}>
 
+        {/* Autocade Wordmark */}
+        <div className="absolute top-4 left-4 z-20">
+          <span style={{ fontFamily: "'Jersey 10', cursive" }} className="text-3xl text-white/80">
+            autocade
+          </span>
+        </div>
         {/* Status indicator - below logo */}
         <div className="absolute top-12 left-4 z-10 flex items-center gap-2 text-xs">
           {/* Connection Status */}

@@ -182,3 +182,20 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Pulsing yellow overlay animation for checkout highlighting */
+@keyframes pulse-transparency {
+
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.animate-pulse-transparency {
+  animation: pulse-transparency 1s ease-in-out infinite;
+}

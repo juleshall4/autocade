@@ -4,7 +4,8 @@ export interface CallerSettings {
     enabled: boolean;
     volume: number;           // 0-100
     sfxVolume: number;        // 0-100
-    announceAllDarts: boolean; // Announce each dart or just turn total
+    announceAllDarts: boolean; // Announce each dart
+    announceRoundTotal: boolean; // Announce turn total after 3 darts
     announceCheckouts: boolean; // Announce "you require X" when <= 170
     announceBusts: boolean;    // Announce busts
     announceGameStart: boolean; // Announce game on
@@ -16,10 +17,11 @@ const DEFAULT_SETTINGS: CallerSettings = {
     volume: 80,
     sfxVolume: 70,
     announceAllDarts: false,
+    announceRoundTotal: true,
     announceCheckouts: true,
     announceBusts: true,
     announceGameStart: true,
-    voice: 'default',
+    voice: 'Northern_Terry',
 };
 
 // Load settings from localStorage
@@ -115,53 +117,60 @@ export const useCaller = () => {
         isPlayingRef.current = false;
     }, []);
 
-    // === CALLER FUNCTIONS ===
+    // === CALLER FUNCTIONS (Dynamic Voice Pack) ===
+    // Map legacy 'default' value to Northern_Terry for backwards compatibility
+    const voicePack = (settings.voice === 'default' || !settings.voice) ? 'Northern_Terry' : settings.voice;
+    const VOICE_PATH = `/sounds/${voicePack}`;
 
-    // Call a score (0-180)
+    // Call a score (0-180) - uses numbers folder
+    // Note: For 0 (bust/no score), use callNoScore() instead
     const callScore = useCallback((score: number) => {
         if (!settings.enabled) return;
-        // Scores are named as {score}.mp3 in the voice pack
-        const soundPath = `/sounds/${score}.mp3`;
-        queueSound(soundPath);
+        if (score === 0) {
+            // Use "No score" for 0
+            queueSound(`${VOICE_PATH}/phrases/No_score.mp3`);
+        } else {
+            queueSound(`${VOICE_PATH}/numbers/${score}.mp3`);
+        }
     }, [settings.enabled, queueSound]);
 
-    // Call a single dart (e.g., "triple twenty", "double sixteen")
-    const callDart = useCallback((segment: string) => {
-        if (!settings.enabled || !settings.announceAllDarts) return;
-        // Darts-caller uses format like: s20.mp3, d20.mp3, t20.mp3
-        // We'll map our segment format to theirs
-        const soundPath = `/sounds/${segment.toLowerCase()}.mp3`;
-        queueSound(soundPath);
-    }, [settings.enabled, settings.announceAllDarts, queueSound]);
+    // Call a single dart (not implemented for this voice pack)
+    const callDart = useCallback((_segment: string) => {
+        // Northern Terry doesn't have individual dart calls
+    }, []);
 
-    // Call remaining score for checkout (≤170)
+    // Call remaining score for checkout (≤170) - plays random "You need" + number
+    const YOU_NEED_VARIANTS = ['You_need.mp3', 'You_need1.mp3', 'You_need2.mp3', 'You_need3.mp3'];
     const callRemaining = useCallback((remaining: number) => {
         if (!settings.enabled || !settings.announceCheckouts) return;
         if (remaining <= 170 && remaining >= 2) {
-            // Just play the remaining score (we don't have "you require" audio)
-            queueSound(`/sounds/${remaining}.mp3`);
+            const randomVariant = YOU_NEED_VARIANTS[Math.floor(Math.random() * YOU_NEED_VARIANTS.length)];
+            queueSound(`${VOICE_PATH}/phrases/${randomVariant}`);
+            queueSound(`${VOICE_PATH}/numbers/${remaining}.mp3`);
         }
     }, [settings.enabled, settings.announceCheckouts, queueSound]);
 
-    // Game on call - not implemented (no audio file)
+    // Game on call - at start of game (randomize from 5 variants)
+    const GAME_ON_VARIANTS = ['Game_on.mp3', 'Game_on1.mp3', 'Game_on2.mp3', 'Game_on3.mp3', 'Game_on4.mp3'];
     const callGameOn = useCallback(() => {
         if (!settings.enabled || !settings.announceGameStart) return;
-        // We don't have game_on.mp3 in this voice pack, skip for now
-        // queueSound('/sounds/game_on.mp3');
-    }, [settings.enabled, settings.announceGameStart]);
+        const randomVariant = GAME_ON_VARIANTS[Math.floor(Math.random() * GAME_ON_VARIANTS.length)];
+        queueSound(`${VOICE_PATH}/phrases/${randomVariant}`);
+    }, [settings.enabled, settings.announceGameStart, queueSound]);
 
-    // Game shot call (checkout/win)
+    // Game shot call (checkout/win) - no score announcement
     const callGameShot = useCallback(() => {
         if (!settings.enabled) return;
-        queueSound('/sounds/game_shot.mp3');
+        queueSound(`${VOICE_PATH}/phrases/Game_shot.mp3`);
     }, [settings.enabled, queueSound]);
 
-    // Bust call - not implemented (no audio file)
-    const callBust = useCallback(() => {
-        if (!settings.enabled || !settings.announceBusts) return;
-        // We don't have busted.mp3 in this voice pack, skip for now
-        // queueSound('/sounds/busted.mp3');
-    }, [settings.enabled, settings.announceBusts]);
+    // No score call - for bust or all 3 miss (randomize from 3 variants)
+    const NO_SCORE_VARIANTS = ['No_score.mp3', 'No_score1.mp3', 'No_score2.mp3'];
+    const callNoScore = useCallback(() => {
+        if (!settings.enabled) return;
+        const randomVariant = NO_SCORE_VARIANTS[Math.floor(Math.random() * NO_SCORE_VARIANTS.length)];
+        queueSound(`${VOICE_PATH}/phrases/${randomVariant}`);
+    }, [settings.enabled, queueSound]);
 
     // Cleanup on unmount
     useEffect(() => {
@@ -171,12 +180,13 @@ export const useCaller = () => {
     }, [stopAll]);
 
     return {
+        settings,
         callScore,
         callDart,
         callRemaining,
         callGameOn,
         callGameShot,
-        callBust,
+        callNoScore,
         stopAll,
     };
 };

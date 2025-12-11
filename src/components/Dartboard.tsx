@@ -34,31 +34,41 @@ interface DartPosition {
 interface DartboardProps {
   darts?: DartPosition[];
   size?: number;
-  highlight?: string[];
+  highlightSegment?: string; // e.g., 'T20', 'D16', 'S6', 'Bull', '25'
   glowColor?: string;
 }
 
-// For future highlight feature
-// interface SegmentInfo {
-//   type: string | null;
-//   num: number;
-// }
+// Segment info for highlight matching
+interface SegmentInfo {
+  type: string | null;
+  num: number;
+}
 
-// Highlight parsing - commented out for future use
-// const getSegmentFromStr = (str: string): SegmentInfo | null => {
-//   if (!str) return null
-//   if (str === 'Bull') return { type: 'doubleBull', num: 25 }
-//   if (str === '25') return { type: 'singleBull', num: 25 }
-//   const type = str.startsWith('T') ? 'triple' :
-//     str.startsWith('D') ? 'double' :
-//       str.startsWith('S') ? 'outerSingle' : null
-//   const num = parseInt(str.slice(1))
-//   return { type, num }
-// }
+// Parse segment string to type and number
+const getSegmentFromStr = (str: string): SegmentInfo | null => {
+  if (!str) return null;
+  if (str === 'Bull' || str === 'D25') return { type: 'doubleBull', num: 25 };
+  if (str === '25' || str === 'S25') return { type: 'singleBull', num: 25 };
+  const type = str.startsWith('T') ? 'triple' :
+    str.startsWith('D') ? 'double' :
+      str.startsWith('S') ? 'single' : null;
+  const num = parseInt(str.slice(1));
+  return { type, num };
+};
 
-export function Dartboard({ darts = [], size = 600, glowColor }: DartboardProps) {
-  // Highlight functionality removed - will rebuild later
-  const isHighlighted = (_type: string, _num: number) => false
+export function Dartboard({ darts = [], size = 600, highlightSegment, glowColor }: DartboardProps) {
+  // Parse the highlight segment once
+  const highlightInfo = highlightSegment ? getSegmentFromStr(highlightSegment) : null;
+
+  // Check if a segment type/num should be highlighted
+  const isHighlighted = (type: string, num: number): boolean => {
+    if (!highlightInfo) return false;
+    // 'single' matches both inner and outer single
+    if (highlightInfo.type === 'single') {
+      return (type === 'innerSingle' || type === 'outerSingle') && num === highlightInfo.num;
+    }
+    return type === highlightInfo.type && num === highlightInfo.num;
+  };
 
   // Generate segment paths
   const segments = SEGMENTS.map((num, i) => {

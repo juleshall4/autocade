@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Palette, Globe, Check, AlertCircle, Volume2 } from 'lucide-react';
+import { Palette, Globe, Check, AlertCircle, Volume2, Wifi, Play } from 'lucide-react';
 
 export interface Theme {
     id: string;
@@ -25,6 +25,8 @@ export interface AppearanceSettings {
     showBoardStatus: boolean;
     showDevTools: boolean;
     theme: string;
+    playerListScale: number; // 50-150
+    gameViewScale: number;   // 50-150
 }
 
 interface SettingsProps {
@@ -38,6 +40,7 @@ interface CallerSettings {
     sfxVolume: number;
     voice: string;
     announceAllDarts: boolean;
+    announceRoundTotal: boolean;
     announceCheckouts: boolean;
     announceBusts: boolean;
     announceGameStart: boolean;
@@ -63,8 +66,9 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
             enabled: true,
             volume: 80,
             sfxVolume: 70,
-            voice: 'default',
+            voice: 'Northern_Terry',
             announceAllDarts: false,
+            announceRoundTotal: true,
             announceCheckouts: true,
             announceBusts: true,
             announceGameStart: true,
@@ -123,7 +127,7 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
     };
 
     return (
-        <div className="w-[480px] max-h-[600px] flex flex-col">
+        <div className="w-[360px] max-h-[600px] flex flex-col">
             {/* Tabs */}
             <div className="flex border-b border-white/10">
                 <button
@@ -155,6 +159,16 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
                 >
                     <Globe className="w-4 h-4" />
                     Connection
+                </button>
+                <button
+                    onClick={() => setActiveTab('wled')}
+                    className={`flex-1 px-4 py-3 text-sm font-medium flex items-center justify-center gap-2 transition-colors ${activeTab === 'wled'
+                        ? 'text-white border-b-2 border-blue-400 bg-white/10'
+                        : 'text-zinc-400 hover:text-white hover:bg-white/5'
+                        }`}
+                >
+                    <Wifi className="w-4 h-4" />
+                    WLED
                 </button>
             </div>
 
@@ -231,6 +245,48 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
                                 </div>
                             </div>
                         </div>
+
+                        {/* Player List Scale */}
+                        <div className="pt-3 border-t border-white/10">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="text-white font-medium text-sm">Player List Scale</div>
+                                <span className="text-zinc-400 text-xs">{appearance.playerListScale || 120}%</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="50"
+                                max="150"
+                                step="5"
+                                value={appearance.playerListScale || 120}
+                                onChange={(e) => onAppearanceChange({ ...appearance, playerListScale: Number(e.target.value) })}
+                                className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                            />
+                        </div>
+
+                        {/* Game View Scale */}
+                        <div className="pt-3 border-t border-white/10">
+                            <div className="flex items-center justify-between mb-2">
+                                <div className="text-white font-medium text-sm">Game View Scale</div>
+                                <span className="text-zinc-400 text-xs">{appearance.gameViewScale || 120}%</span>
+                            </div>
+                            <input
+                                type="range"
+                                min="50"
+                                max="150"
+                                step="5"
+                                value={appearance.gameViewScale || 120}
+                                onChange={(e) => onAppearanceChange({ ...appearance, gameViewScale: Number(e.target.value) })}
+                                className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                            />
+                        </div>
+
+                        {/* Reset Scales Button */}
+                        <button
+                            onClick={() => onAppearanceChange({ ...appearance, playerListScale: 120, gameViewScale: 120 })}
+                            className="w-full mt-3 px-3 py-2 text-xs text-zinc-400 hover:text-white bg-white/5 hover:bg-white/10 rounded border border-white/10 transition-colors"
+                        >
+                            Reset Scales to 120%
+                        </button>
                     </div>
                 )}
 
@@ -250,92 +306,107 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
                             </button>
                         </div>
 
-                        {/* Caller Volume */}
-                        <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="text-white font-medium text-sm">Caller Volume</div>
-                                <span className="text-zinc-400 text-xs">{callerSettings.volume}%</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={callerSettings.volume}
-                                onChange={(e) => updateCallerSetting('volume', Number(e.target.value))}
-                                className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                            />
-                        </div>
+                        {/* Only show other options when caller is enabled */}
+                        {callerSettings.enabled && (
+                            <>
+                                {/* Caller Volume */}
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="text-white font-medium text-sm">Volume</div>
+                                        <span className="text-zinc-400 text-xs">{callerSettings.volume}%</span>
+                                    </div>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="100"
+                                        value={callerSettings.volume}
+                                        onChange={(e) => updateCallerSetting('volume', Number(e.target.value))}
+                                        className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                                    />
+                                </div>
 
-                        {/* SFX Volume */}
-                        <div>
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="text-white font-medium text-sm">Sound Effects Volume</div>
-                                <span className="text-zinc-400 text-xs">{callerSettings.sfxVolume}%</span>
-                            </div>
-                            <input
-                                type="range"
-                                min="0"
-                                max="100"
-                                value={callerSettings.sfxVolume}
-                                onChange={(e) => updateCallerSetting('sfxVolume', Number(e.target.value))}
-                                className="w-full h-2 bg-white/10 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                            />
-                        </div>
+                                {/* Caller Voice Selection */}
+                                <div>
+                                    <div className="text-white font-medium text-sm mb-2">Voice</div>
+                                    <div className="flex gap-2">
+                                        <select
+                                            value={callerSettings.voice}
+                                            onChange={(e) => updateCallerSetting('voice', e.target.value)}
+                                            className="flex-1 bg-white/10 text-white px-3 py-2 rounded border border-white/10 focus:border-white/30 outline-none text-sm appearance-none cursor-pointer"
+                                        >
+                                            <option value="Northern_Terry" className="bg-zinc-900">Northern Terry</option>
+                                            <option value="Russ_Bray" className="bg-zinc-900" disabled>Russ Bray (Coming Soon)</option>
+                                            <option value="Neutral_Male" className="bg-zinc-900" disabled>Neutral Male (Coming Soon)</option>
+                                            <option value="Neutral_Female" className="bg-zinc-900" disabled>Neutral Female (Coming Soon)</option>
+                                        </select>
+                                        <button
+                                            onClick={() => {
+                                                const voicePack = (callerSettings.voice === 'default' || !callerSettings.voice) ? 'Northern_Terry' : callerSettings.voice;
+                                                const audio = new Audio(`/sounds/${voicePack}/phrases/preview.mp3`);
+                                                audio.volume = callerSettings.volume / 100;
+                                                audio.play().catch(() => console.warn('Preview not found'));
+                                            }}
+                                            className="px-3 py-2 bg-white/10 hover:bg-white/20 rounded border border-white/10 transition-colors"
+                                            title="Preview voice"
+                                        >
+                                            <Play className="w-4 h-4 text-white" />
+                                        </button>
+                                    </div>
+                                </div>
 
-                        {/* Caller Voice Selection */}
-                        <div>
-                            <div className="text-white font-medium text-sm mb-2">Caller Voice</div>
-                            <select
-                                value={callerSettings.voice}
-                                onChange={(e) => updateCallerSetting('voice', e.target.value)}
-                                className="w-full bg-white/10 text-white px-3 py-2 rounded border border-white/10 focus:border-white/30 outline-none text-sm appearance-none cursor-pointer"
-                            >
-                                <option value="default" className="bg-zinc-900">Joey (Default)</option>
-                            </select>
-                        </div>
-
-                        {/* Announcement Options */}
-                        <div className="pt-3 border-t border-white/10">
-                            <div className="text-white font-medium text-sm mb-3">Announce</div>
-                            <div className="space-y-3">
-                                <label className="flex items-center justify-between cursor-pointer">
-                                    <span className="text-zinc-300 text-sm">All Darts (per throw)</span>
-                                    <input
-                                        type="checkbox"
-                                        checked={callerSettings.announceAllDarts}
-                                        onChange={(e) => updateCallerSetting('announceAllDarts', e.target.checked)}
-                                        className="w-4 h-4 rounded bg-white/10 border-white/20 accent-blue-500"
-                                    />
-                                </label>
-                                <label className="flex items-center justify-between cursor-pointer">
-                                    <span className="text-zinc-300 text-sm">Checkouts (≤170)</span>
-                                    <input
-                                        type="checkbox"
-                                        checked={callerSettings.announceCheckouts}
-                                        onChange={(e) => updateCallerSetting('announceCheckouts', e.target.checked)}
-                                        className="w-4 h-4 rounded bg-white/10 border-white/20 accent-blue-500"
-                                    />
-                                </label>
-                                <label className="flex items-center justify-between cursor-pointer">
-                                    <span className="text-zinc-300 text-sm">Busts</span>
-                                    <input
-                                        type="checkbox"
-                                        checked={callerSettings.announceBusts}
-                                        onChange={(e) => updateCallerSetting('announceBusts', e.target.checked)}
-                                        className="w-4 h-4 rounded bg-white/10 border-white/20 accent-blue-500"
-                                    />
-                                </label>
-                                <label className="flex items-center justify-between cursor-pointer">
-                                    <span className="text-zinc-300 text-sm">Game Start</span>
-                                    <input
-                                        type="checkbox"
-                                        checked={callerSettings.announceGameStart}
-                                        onChange={(e) => updateCallerSetting('announceGameStart', e.target.checked)}
-                                        className="w-4 h-4 rounded bg-white/10 border-white/20 accent-blue-500"
-                                    />
-                                </label>
-                            </div>
-                        </div>
+                                {/* Announcement Options */}
+                                <div className="pt-3 border-t border-white/10">
+                                    <div className="text-white font-medium text-sm mb-3">Announce</div>
+                                    <div className="space-y-3">
+                                        <label className="flex items-center justify-between cursor-pointer">
+                                            <span className="text-zinc-300 text-sm">All Darts (per throw)</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={callerSettings.announceAllDarts}
+                                                onChange={(e) => updateCallerSetting('announceAllDarts', e.target.checked)}
+                                                className="w-4 h-4 rounded bg-white/10 border-white/20 accent-blue-500"
+                                            />
+                                        </label>
+                                        <label className="flex items-center justify-between cursor-pointer">
+                                            <span className="text-zinc-300 text-sm">Round Total</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={callerSettings.announceRoundTotal}
+                                                onChange={(e) => updateCallerSetting('announceRoundTotal', e.target.checked)}
+                                                className="w-4 h-4 rounded bg-white/10 border-white/20 accent-blue-500"
+                                            />
+                                        </label>
+                                        <label className="flex items-center justify-between cursor-pointer">
+                                            <span className="text-zinc-300 text-sm">Checkouts (≤170)</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={callerSettings.announceCheckouts}
+                                                onChange={(e) => updateCallerSetting('announceCheckouts', e.target.checked)}
+                                                className="w-4 h-4 rounded bg-white/10 border-white/20 accent-blue-500"
+                                            />
+                                        </label>
+                                        <label className="flex items-center justify-between cursor-pointer">
+                                            <span className="text-zinc-300 text-sm">Busts</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={callerSettings.announceBusts}
+                                                onChange={(e) => updateCallerSetting('announceBusts', e.target.checked)}
+                                                className="w-4 h-4 rounded bg-white/10 border-white/20 accent-blue-500"
+                                            />
+                                        </label>
+                                        <label className="flex items-center justify-between cursor-pointer">
+                                            <span className="text-zinc-300 text-sm">Game Start</span>
+                                            <input
+                                                type="checkbox"
+                                                checked={callerSettings.announceGameStart}
+                                                onChange={(e) => updateCallerSetting('announceGameStart', e.target.checked)}
+                                                className="w-4 h-4 rounded bg-white/10 border-white/20 accent-blue-500"
+                                            />
+                                        </label>
+                                    </div>
+                                </div>
+                            </>
+                        )}
                     </div>
                 )}
 
