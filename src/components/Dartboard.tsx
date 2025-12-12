@@ -49,6 +49,20 @@ const getSegmentFromStr = (str: string): SegmentInfo | null => {
   if (!str) return null;
   if (str === 'Bull' || str === 'D25') return { type: 'doubleBull', num: 25 };
   if (str === '25' || str === 'S25') return { type: 'singleBull', num: 25 };
+  if (str === 'full25') return { type: 'fullBull', num: 25 }; // Full bull = both rings
+
+  // Check for 'full' prefix (highlight entire segment - all rings)
+  if (str.startsWith('full')) {
+    const num = parseInt(str.slice(4));
+    return { type: 'full', num };
+  }
+
+  // Check for 'OS' prefix (outer-single only)
+  if (str.startsWith('OS')) {
+    const num = parseInt(str.slice(2));
+    return { type: 'outerSingle', num };
+  }
+
   const type = str.startsWith('T') ? 'triple' :
     str.startsWith('D') ? 'double' :
       str.startsWith('S') ? 'single' : null;
@@ -63,11 +77,25 @@ export function Dartboard({ darts = [], size = 600, highlightSegment, glowColor 
   // Check if a segment type/num should be highlighted
   const isHighlighted = (type: string, num: number): boolean => {
     if (!highlightInfo) return false;
+    if (highlightInfo.num !== num) return false;
+
+    // 'full' highlights all parts of the segment (double, triple, inner single, outer single)
+    if (highlightInfo.type === 'full') {
+      return type === 'double' || type === 'triple' || type === 'innerSingle' || type === 'outerSingle';
+    }
+
+    // 'fullBull' highlights both bull rings
+    if (highlightInfo.type === 'fullBull') {
+      return type === 'singleBull' || type === 'doubleBull';
+    }
+
     // 'single' matches both inner and outer single
     if (highlightInfo.type === 'single') {
-      return (type === 'innerSingle' || type === 'outerSingle') && num === highlightInfo.num;
+      return type === 'innerSingle' || type === 'outerSingle';
     }
-    return type === highlightInfo.type && num === highlightInfo.num;
+
+    // Direct match for specific types
+    return type === highlightInfo.type;
   };
 
   // Generate segment paths

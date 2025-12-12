@@ -368,7 +368,7 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
                         caller.callGameShot();
                         handleLegWin(currentPlayer.id);
                     }
-                } else if (projectedRemaining < 0 || projectedRemaining === 1) {
+                } else if (projectedRemaining < 0 || (outMode === 'double' && projectedRemaining === 1)) {
                     // Bust
                     setIsBust(true);
                     setTurnScore(accumulatedScore);
@@ -412,9 +412,10 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
     // Calculate checkout based on current remaining score and darts left in turn
     const dartsThrown = turnThrows.length;
     const dartsRemaining = MAX_THROWS_PER_TURN - dartsThrown;
-    const checkoutSuggestions = projectedScore <= 170 && projectedScore >= 2 &&
+    const doubleOut = outMode === 'double';
+    const checkoutSuggestions = projectedScore <= 170 && projectedScore >= (doubleOut ? 2 : 1) &&
         !isBust && !legWinnerId && currentPlayerLegData?.hasStarted && dartsRemaining > 0
-        ? getCheckoutSuggestions(projectedScore, dartsRemaining)
+        ? getCheckoutSuggestions(projectedScore, dartsRemaining, doubleOut)
         : [];
 
     // Victory overlay (shows first when match is won)
@@ -556,7 +557,7 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
 
     // Main game view
     return (
-        <div className="flex flex-col items-center justify-center p-8 space-y-6">
+        <div className="h-full w-full flex flex-col items-center justify-center p-8 gap-12">
             {/* Match score header */}
             {matchMode !== 'off' && (
                 <div className="flex items-center gap-6 mb-2">
@@ -582,37 +583,35 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
             )}
 
             {/* Player leg scores */}
-            <div style={{ transform: `scale(${playerListScale / 100})`, transformOrigin: 'top center' }}>
-                <div className="flex items-center gap-4 mb-4">
-                    {players.map((player, idx) => {
-                        const ld = legData.find(d => d.playerId === player.id);
-                        const isActive = idx === currentPlayerIndex;
-                        return (
-                            <div key={player.id} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all backdrop-blur-md border-2 ${isActive ? 'bg-white/15 text-white scale-110 border-white' : 'bg-white/10 text-zinc-300 border-white/10'}`}>
-                                <div className="w-10 h-10 rounded-full bg-zinc-700/50 overflow-hidden shrink-0">
-                                    {player.photo ? (
-                                        <img src={player.photo} alt={player.name} className="w-full h-full object-cover" />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-lg font-bold opacity-50">
-                                            {player.name.charAt(0).toUpperCase()}
-                                        </div>
-                                    )}
-                                </div>
-                                <div>
-                                    <div className="text-xs uppercase tracking-wider opacity-75">
-                                        {player.name}
-                                        {!ld?.hasStarted && inMode === 'double' && <span className="ml-1 text-yellow-400">(waiting)</span>}
+            <div className="flex items-center gap-6">
+                {players.map((player, idx) => {
+                    const ld = legData.find(d => d.playerId === player.id);
+                    const isActive = idx === currentPlayerIndex;
+                    return (
+                        <div key={player.id} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all backdrop-blur-md border-2 ${isActive ? 'bg-white/15 text-white scale-110 border-white' : 'bg-white/10 text-zinc-300 border-white/10'}`}>
+                            <div className="w-10 h-10 rounded-full bg-zinc-700/50 overflow-hidden shrink-0">
+                                {player.photo ? (
+                                    <img src={player.photo} alt={player.name} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-lg font-bold opacity-50">
+                                        {player.name.charAt(0).toUpperCase()}
                                     </div>
-                                    <div className="text-2xl font-bold tabular-nums">{ld?.remaining ?? baseScore}</div>
-                                </div>
+                                )}
                             </div>
-                        );
-                    })}
-                </div>
+                            <div>
+                                <div className="text-xs uppercase tracking-wider opacity-75">
+                                    {player.name}
+                                    {!ld?.hasStarted && inMode === 'double' && <span className="ml-1 text-yellow-400">(waiting)</span>}
+                                </div>
+                                <div className="text-2xl font-bold tabular-nums">{ld?.remaining ?? baseScore}</div>
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
 
             {/* Main game area - Dartboard and Score side by side */}
-            <div style={{ transform: `scale(${gameViewScale / 100})`, transformOrigin: 'top center' }}>
+            <div style={{ zoom: gameViewScale / 100 }}>
                 <div className="flex items-center justify-center gap-12">
                     {/* Dartboard */}
                     <Dartboard
@@ -664,7 +663,7 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
                     </div>
                 </div>
             </div>
-        </div>
+        </div >
     );
 }
 

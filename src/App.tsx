@@ -7,6 +7,8 @@ import { SimulatorPanel } from './components/simulator-panel';
 import { GameSelector } from './components/game-selector';
 import { X01Rules, type X01Settings } from './components/x01-rules';
 import { X01Game } from './components/x01-game';
+import { AroundTheClockRules, type AroundTheClockSettings } from './components/around-the-clock-rules';
+import { AroundTheClockGame } from './components/around-the-clock-game';
 import { PlayerConfigContent } from './components/player-config';
 import { PlayerList } from './components/player-list';
 import { SettingsContent, type AppearanceSettings, THEMES } from './components/settings';
@@ -14,9 +16,10 @@ import { Popover } from './components/popover';
 import { IpSetup } from './components/ip-setup';
 import { getStatusEmoji } from './types/autodarts';
 import { Wifi, WifiOff, Gamepad2, Terminal, RotateCcw, Users, Settings as SettingsIcon, Maximize, Minimize, Globe } from 'lucide-react';
+import { ManualEntryDrawer } from './components/manual-entry-drawer';
 import autodartsLogo from './assets/autodartgrey.png';
 
-type AppView = 'game' | 'game-selector' | 'x01-rules' | 'x01-game';
+type AppView = 'game' | 'game-selector' | 'x01-rules' | 'x01-game' | 'atc-rules' | 'atc-game';
 
 function App() {
   const { isConnected, latestState, logs, clearLogs, simulateState } = useAutodarts();
@@ -43,6 +46,13 @@ function App() {
     legsToWin: 3,
     setsToWin: 3,
     startingOrder: 'random',
+  });
+  const [atcSettings, setAtcSettings] = useState<AroundTheClockSettings>({
+    mode: 'full',
+    order: '1-20-bull',
+    multiplier: false,
+    hitsRequired: 1,
+    bullFinish: true,
   });
 
   // Load appearance settings from localStorage
@@ -106,6 +116,8 @@ function App() {
   const handleSelectGame = (gameId: string) => {
     if (gameId === 'x01') {
       setCurrentView('x01-rules');
+    } else if (gameId === 'around-the-clock') {
+      setCurrentView('atc-rules');
     } else {
       // Other games not implemented yet - just show generic game
       setCurrentView('game');
@@ -165,6 +177,34 @@ function App() {
             gameViewScale={appearance.gameViewScale}
           />
         );
+      case 'atc-rules':
+        return (
+          <AroundTheClockRules
+            onNext={(settings) => {
+              setAtcSettings(settings);
+              handleReset();
+              setCurrentView('atc-game');
+            }}
+            onBack={() => setCurrentView('game-selector')}
+            accentClass={currentTheme?.accent}
+            accentBorderClass={currentTheme?.accentBorder}
+          />
+        );
+      case 'atc-game':
+        return (
+          <AroundTheClockGame
+            key={gameKey}
+            state={latestState}
+            settings={atcSettings}
+            players={activePlayers}
+            onPlayAgain={() => {
+              handleReset();
+              setCurrentView('atc-rules');
+            }}
+            themeGlow={currentTheme?.glow}
+            gameViewScale={appearance.gameViewScale}
+          />
+        );
       default:
         return <AutodartsGame key={gameKey} state={latestState} />;
     }
@@ -201,26 +241,28 @@ function App() {
       {/* Main Panel */}
       <div className={`${showConsole ? 'w-1/2' : 'w-full'} h-full flex flex-col relative`}>
 
-        {/* Autocade Wordmark */}
-        <div className="absolute top-4 left-4 z-20">
-          <span style={{ fontFamily: "'Jersey 10', cursive" }} className="text-3xl text-white/80">
-            autocade
-          </span>
-        </div>
-        {/* Status indicator - below logo */}
-        <div className="absolute top-12 left-4 z-10 flex items-center gap-2 text-xs">
+        {/* Status indicator - top left */}
+        <div className="absolute top-4 left-4 z-10 flex items-center gap-3">
           {/* Connection Status */}
           {appearance.showConnectionStatus && (
-            <div className="px-2 py-1 rounded bg-white/10 backdrop-blur-md border border-white/10 flex items-center gap-1.5">
-              {isConnected ? <Wifi className="w-3 h-3 text-green-400" /> : <WifiOff className="w-3 h-3 text-red-400" />}
-              <span className="text-zinc-300">{isConnected ? 'CONNECTED' : 'DISCONNECTED'}</span>
+            <div className="relative group">
+              <div className="p-2.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/10">
+                {isConnected ? <Wifi className="w-5 h-5 text-green-400" /> : <WifiOff className="w-5 h-5 text-red-400" />}
+              </div>
+              <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 text-xs bg-black/80 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                {isConnected ? 'Connected' : 'Disconnected'}
+              </span>
             </div>
           )}
-          {/* Event Status */}
+          {/* Board Status */}
           {appearance.showBoardStatus && (
-            <div className="px-2 py-1 rounded bg-white/10 backdrop-blur-md border border-white/10 flex items-center gap-1.5">
-              {getStatusEmoji(latestState?.status || '')}
-              <span className="text-zinc-300">{latestState?.status || 'Waiting'}</span>
+            <div className="relative group">
+              <div className="w-10.5 h-10.5 flex items-center justify-center rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-lg leading-none">
+                {getStatusEmoji(latestState?.status || '')}
+              </div>
+              <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 text-xs bg-black/80 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+                {latestState?.status || 'Waiting'}
+              </span>
             </div>
           )}
         </div>
@@ -231,7 +273,7 @@ function App() {
           <div className="relative group">
             <button
               onClick={toggleFullscreen}
-              className="p-2.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-zinc-300 hover:bg-white/20 transition-colors"
+              className="btn-scale-lg p-2.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-zinc-300 hover:bg-white/20 transition-colors"
             >
               {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
             </button>
@@ -241,7 +283,7 @@ function App() {
           </div>
 
           {/* Players Popover - hidden during active game */}
-          {currentView !== 'x01-game' && (
+          {currentView !== 'x01-game' && currentView !== 'atc-game' && (
             <Popover
               isOpen={showPlayerConfig}
               onClose={() => setShowPlayerConfig(false)}
@@ -250,7 +292,7 @@ function App() {
                 <div className="relative group">
                   <button
                     onClick={() => setShowPlayerConfig(!showPlayerConfig)}
-                    className="p-2.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-zinc-300 hover:bg-white/20 transition-colors"
+                    className="btn-scale-lg p-2.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-zinc-300 hover:bg-white/20 transition-colors"
                   >
                     <Users className="w-5 h-5" />
                   </button>
@@ -274,7 +316,7 @@ function App() {
           )}
 
           {/* Quit Button - only during active game */}
-          {currentView === 'x01-game' && (
+          {(currentView === 'x01-game' || currentView === 'atc-game') && (
             <button
               onClick={() => {
                 if (showQuitConfirm) {
@@ -301,7 +343,7 @@ function App() {
               <div className="relative group">
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className="p-2.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-zinc-300 hover:bg-white/20 transition-colors"
+                  className="btn-scale-lg p-2.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-zinc-300 hover:bg-white/20 transition-colors"
                 >
                   <SettingsIcon className="w-5 h-5" />
                 </button>
@@ -327,8 +369,8 @@ function App() {
           {renderMainContent()}
         </div>
 
-        {/* Powered by Autodarts */}
-        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 flex items-center gap-2 opacity-30">
+        {/* Powered by Autodarts - bottom left */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 opacity-50">
           <img src={autodartsLogo} alt="Autodarts" className="h-4" />
           <span className="text-xs text-[#A9A9A9]">Powered by Autodarts</span>
         </div>
@@ -380,6 +422,14 @@ function App() {
           />
         )
       }
+
+      {/* Manual Entry Drawer - only during active games */}
+      {(currentView === 'x01-game' || currentView === 'atc-game') && (
+        <ManualEntryDrawer
+          currentState={latestState}
+          onSimulateThrow={simulateState}
+        />
+      )}
 
 
 
