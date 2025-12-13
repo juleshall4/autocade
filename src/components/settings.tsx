@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Palette, Globe, Check, AlertCircle, Volume2, Wifi, Play } from 'lucide-react';
+import { Palette, Globe, Check, AlertCircle, Volume2, Wifi, Play, Loader2 } from 'lucide-react';
 
 export interface Theme {
     id: string;
@@ -51,7 +51,7 @@ type SettingsTab = 'appearance' | 'audio' | 'connection' | 'wled';
 export function SettingsContent({ appearance, onAppearanceChange }: SettingsProps) {
     const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
     const [ipAddress, setIpAddress] = useState('');
-    const [ipSaved, setIpSaved] = useState(false);
+    const [ipStatus, setIpStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
     const [ipError, setIpError] = useState('');
 
     // Audio settings state - load from localStorage
@@ -104,26 +104,59 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
         });
     };
 
-    const handleSaveIp = () => {
+    const testConnection = async (ip: string): Promise<boolean> => {
+        return new Promise((resolve) => {
+            try {
+                const ws = new WebSocket(`ws://${ip}:3180/api/events`);
+                const timeout = setTimeout(() => {
+                    ws.close();
+                    resolve(false);
+                }, 5000);
+
+                ws.onopen = () => {
+                    clearTimeout(timeout);
+                    ws.close();
+                    resolve(true);
+                };
+
+                ws.onerror = () => {
+                    clearTimeout(timeout);
+                    resolve(false);
+                };
+            } catch {
+                resolve(false);
+            }
+        });
+    };
+
+    const handleSaveIp = async () => {
         // Basic validation
         const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
         if (!ipRegex.test(ipAddress)) {
             setIpError('Invalid IP address format');
-            setIpSaved(false);
+            setIpStatus('idle');
             return;
         }
 
+        // Save the IP immediately (even if connection fails)
         localStorage.setItem('autodartsIP', ipAddress);
-        setIpSaved(true);
         setIpError('');
+        setIpStatus('testing');
 
-        // Reset saved indicator after 2 seconds
-        setTimeout(() => setIpSaved(false), 2000);
+        // Run connection test with minimum 1 second animation
+        const [connected] = await Promise.all([
+            testConnection(ipAddress),
+            new Promise(resolve => setTimeout(resolve, 1000))
+        ]);
 
-        // Optional: Trigger a reload or notify user to reload for changes to take effect
-        // For now, we just save it. The useAutodarts hook would need to be updated to react to this 
-        // or we rely on the next app load/reconnect cycle if we were fancy.
-        // But since this is a "setting", simple persistence is the first step.
+        if (connected) {
+            setIpStatus('success');
+            // Reset after 3 seconds
+            setTimeout(() => setIpStatus('idle'), 3000);
+        } else {
+            setIpStatus('error');
+            setIpError('Connection failed');
+        }
     };
 
     return (
@@ -418,9 +451,14 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
                             <input
                                 type="text"
                                 value={ipAddress}
-                                onChange={(e) => setIpAddress(e.target.value)}
+                                onChange={(e) => {
+                                    setIpAddress(e.target.value);
+                                    setIpError('');
+                                    setIpStatus('idle');
+                                }}
                                 placeholder="192.168.1.100"
                                 className="w-full px-3 py-2 bg-white/10 rounded border border-white/10 text-white text-sm focus:outline-none focus:border-blue-500 transition-colors font-mono"
+                                disabled={ipStatus === 'testing'}
                             />
                         </div>
 
@@ -428,25 +466,40 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={handleSaveIp}
-                                className="px-4 py-2 bg-blue-500 hover:bg-blue-400 text-white rounded text-sm font-medium transition-colors"
+                                disabled={ipStatus === 'testing'}
+                                className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${ipStatus === 'testing'
+                                    ? 'bg-blue-500/50 text-white/70 cursor-wait'
+                                    : ipStatus === 'success'
+                                        ? 'bg-green-500 hover:bg-green-400 text-white'
+                                        : 'bg-blue-500 hover:bg-blue-400 text-white'
+                                    }`}
                             >
-                                Save
+                                {ipStatus === 'testing' && <Loader2 className="w-4 h-4 animate-spin" />}
+                                {ipStatus === 'success' && <Check className="w-4 h-4" />}
+                                {ipStatus === 'testing' ? 'Testing...' : ipStatus === 'success' ? 'Connected!' : 'Test & Save'}
                             </button>
-                            {ipSaved && (
-                                <span className="text-green-400 text-xs flex items-center gap-1">
-                                    <Check className="w-3 h-3" /> Saved!
-                                </span>
-                            )}
-                            {ipError && (
+                            {ipStatus === 'error' && (
                                 <span className="text-red-400 text-xs flex items-center gap-1">
                                     <AlertCircle className="w-3 h-3" /> {ipError}
                                 </span>
                             )}
                         </div>
 
-                        <div className="text-xs text-zinc-500 mt-2">
-                            Note: Refresh the page for connection changes to take effect.
-                        </div>
+                        {ipStatus === 'success' && (
+                            <div className="text-xs text-green-400 mt-2">
+                                ✓ Successfully connected to Board Manager
+                            </div>
+                        )}
+                        {ipStatus === 'error' && (
+                            <div className="text-xs text-zinc-500 mt-2">
+                                Make sure Board Manager is running and the IP is correct.
+                            </div>
+                        )}
+                        {ipStatus === 'idle' && (
+                            <div className="text-xs text-zinc-500 mt-2">
+                                Enter the IP address of the device running Autodarts Board Manager.
+                            </div>
+                        )}
                     </div>
                 )}
                 {activeTab === 'wled' && (

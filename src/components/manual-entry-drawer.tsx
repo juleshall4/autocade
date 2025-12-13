@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { ChevronLeft, Pin, GripVertical } from 'lucide-react';
 import type { AutodartsSegment, AutodartsThrow, AutodartsState } from '../types/autodarts';
 
 
@@ -34,11 +35,62 @@ function createThrow(segment: AutodartsSegment): AutodartsThrow {
 
 export function ManualEntryDrawer({ currentState, onSimulateThrow }: ManualEntryDrawerProps) {
     const [multiplier, setMultiplier] = useState<MultiplierMode>(1);
+    const [isHovered, setIsHovered] = useState(false);
+    const [isPinned, setIsPinned] = useState(false);
+    const [position, setPosition] = useState({ x: 0, y: 0 });
 
     // Get current throws from the actual state
     const currentThrows = currentState?.throws || [];
     const maxThrows = 3;
     const canThrow = currentThrows.length < maxThrows;
+
+    // Only allow dragging when pinned
+    const [isDragging, setIsDragging] = useState(false);
+    const panelRef = useRef<HTMLDivElement>(null);
+    const dragStartRef = useRef({ x: 0, y: 0 });
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        if (!panelRef.current || !isPinned) return;
+        e.preventDefault();
+        setIsDragging(true);
+        dragStartRef.current = {
+            x: e.clientX - position.x,
+            y: e.clientY - position.y,
+        };
+    };
+
+    useEffect(() => {
+        const handleMouseMove = (e: MouseEvent) => {
+            if (!isDragging) return;
+            setPosition({
+                x: e.clientX - dragStartRef.current.x,
+                y: e.clientY - dragStartRef.current.y,
+            });
+        };
+
+        const handleMouseUp = () => {
+            setIsDragging(false);
+        };
+
+        if (isDragging) {
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
+
+        return () => {
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        };
+    }, [isDragging]);
+
+    // Reset position when unpinned
+    const handleTogglePin = () => {
+        if (isPinned) {
+            // Unpinning - reset position
+            setPosition({ x: 0, y: 0 });
+        }
+        setIsPinned(!isPinned);
+    };
 
     const handleThrow = (number: number) => {
         if (!canThrow) return;
@@ -145,28 +197,66 @@ export function ManualEntryDrawer({ currentState, onSimulateThrow }: ManualEntry
         return 'bg-white/10 text-white border-white/10 hover:bg-white/20';
     };
 
-    const [isHovered, setIsHovered] = useState(false);
+    // Show drawer based on hover or pinned state
+    const showDrawer = isHovered || isPinned;
 
-    // Show drawer based only on hover
-    const showDrawer = isHovered;
+    // Calculate style based on position and whether it's been dragged
+    const hasBeenDragged = position.x !== 0 || position.y !== 0;
+    const panelStyle = hasBeenDragged
+        ? { transform: `translate(${position.x}px, ${position.y}px)` }
+        : {};
 
     return (
         <>
-            {/* Hover detection zone - 3px strip on right edge, full height */}
+            {/* Peek tab - visible when drawer is hidden */}
             <div
-                className="fixed right-0 z-40 w-[100px] h-1/2 translate-y-1/2"
+                className={`fixed top-1/2 -translate-y-1/2 right-0 z-40 transition-all duration-300 ${showDrawer ? 'opacity-0 translate-x-full' : 'opacity-100 translate-x-0'}`}
                 onMouseEnter={() => setIsHovered(true)}
-            />
+            >
+                <div className="flex items-center gap-1 px-2 py-3 bg-white/10 backdrop-blur-xl border border-white/10 border-r-0 rounded-l-lg cursor-pointer hover:bg-white/20 transition-colors">
+                    <ChevronLeft className="w-4 h-4 text-zinc-400" />
+                </div>
+            </div>
 
-            {/* Drawer container - NOT hoverable, just positioned */}
+            {/* Drawer container */}
             <div
-                className="fixed top-1/2 -translate-y-1/2 right-5 z-30"
-                onMouseLeave={() => setIsHovered(false)}
+                ref={panelRef}
+                className={`fixed top-1/2 -translate-y-1/2 right-5 z-30 ${isDragging ? 'cursor-grabbing' : ''}`}
+                style={panelStyle}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => !isPinned && setIsHovered(false)}
             >
 
                 {/* Drawer Panel - always rendered, visibility controlled via CSS */}
                 <div className={`bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl shadow-2xl transition-all duration-300 ${showDrawer ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'}`}>
                     <div className="p-3 w-56">
+                        {/* Header with drag handle and pin */}
+                        <div className="flex items-center justify-between mb-2">
+                            {/* Drag Handle - only visible when pinned */}
+                            {isPinned ? (
+                                <div
+                                    onMouseDown={handleMouseDown}
+                                    className="p-1 -ml-1 rounded cursor-grab active:cursor-grabbing hover:bg-white/10 transition-colors"
+                                    title="Drag to move"
+                                >
+                                    <GripVertical className="w-4 h-4 text-zinc-500" />
+                                </div>
+                            ) : (
+                                <div className="w-6" /> // Spacer when not pinned
+                            )}
+
+                            <span className="text-xs font-medium text-zinc-500 uppercase">Manual Entry</span>
+
+                            {/* Pin Button */}
+                            <button
+                                onClick={handleTogglePin}
+                                className={`p-1 rounded transition-colors ${isPinned ? 'bg-blue-500/30 text-blue-400' : 'text-zinc-500 hover:text-white hover:bg-white/10'}`}
+                                title={isPinned ? 'Unpin' : 'Pin to keep open'}
+                            >
+                                <Pin className={`w-3.5 h-3.5 ${isPinned ? 'fill-current' : ''}`} />
+                            </button>
+                        </div>
+
                         {/* Multiplier selector - vertical */}
                         <div className="flex gap-1 mb-3">
                             <button onClick={() => setMultiplier(1)} className={`flex-1 ${multiplierBtn(1, multiplier === 1)}`}>
@@ -241,3 +331,4 @@ export function ManualEntryDrawer({ currentState, onSimulateThrow }: ManualEntry
         </>
     );
 }
+

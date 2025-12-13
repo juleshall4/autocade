@@ -3,6 +3,7 @@ import type { AutodartsState } from "../types/autodarts";
 import type { Player } from "../types/player";
 import type { AroundTheClockSettings, ATCOrder } from "./around-the-clock-rules";
 import { VictoryOverlay } from "./victory-overlay";
+import { NextPlayerOverlay } from "./next-player-overlay";
 import { Dartboard } from "./Dartboard";
 
 interface AroundTheClockGameProps {
@@ -82,6 +83,10 @@ export function AroundTheClockGame({
     // Victory overlay
     const [showVictoryOverlay, setShowVictoryOverlay] = useState(false);
 
+    // Next player overlay
+    const [showNextPlayerOverlay, setShowNextPlayerOverlay] = useState(false);
+    const [nextPlayerToShow, setNextPlayerToShow] = useState<Player | null>(null);
+
     // Track previous state
     const prevThrowsRef = useRef<string[]>([]);
 
@@ -156,7 +161,13 @@ export function AroundTheClockGame({
 
         // Turn ended - move to next player
         if (isTurnEnd && currentNames.length === 0 && prevNames.length > 0) {
-            setCurrentPlayerIndex(prev => (prev + 1) % players.length);
+            // Show next player overlay (only for multiplayer games)
+            const nextIndex = (currentPlayerIndex + 1) % players.length;
+            if (players.length > 1) {
+                setNextPlayerToShow(players[nextIndex]);
+                setShowNextPlayerOverlay(true);
+            }
+            setCurrentPlayerIndex(nextIndex);
             setTurnThrows([]);
         }
         // New throw
@@ -235,6 +246,19 @@ export function AroundTheClockGame({
 
         prevThrowsRef.current = currentNames;
     }, [state, currentPlayer, currentPlayerData, winnerId, players.length, getHitMultiplier, getNextTarget, sequence]);
+
+    // Next player overlay (shows between turns)
+    if (showNextPlayerOverlay && nextPlayerToShow) {
+        return (
+            <NextPlayerOverlay
+                player={nextPlayerToShow}
+                onComplete={() => {
+                    setShowNextPlayerOverlay(false);
+                    setNextPlayerToShow(null);
+                }}
+            />
+        );
+    }
 
     // Victory overlay
     if (winnerId && showVictoryOverlay) {

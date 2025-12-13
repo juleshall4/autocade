@@ -4,6 +4,7 @@ import type { Player } from "../types/player";
 import type { X01Settings } from "./x01-rules";
 import { getCheckoutSuggestions } from "../utils/checkouts";
 import { VictoryOverlay } from "./victory-overlay";
+import { NextPlayerOverlay } from "./next-player-overlay";
 import { Dartboard } from "./Dartboard";
 import { useCaller } from "../hooks/use-caller";
 
@@ -101,6 +102,10 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
 
     // Victory overlay (shows before match summary)
     const [showVictoryOverlay, setShowVictoryOverlay] = useState(false);
+
+    // Next player overlay
+    const [showNextPlayerOverlay, setShowNextPlayerOverlay] = useState(false);
+    const [nextPlayerToShow, setNextPlayerToShow] = useState<Player | null>(null);
 
     // Track previous state
     const prevThrowsRef = useRef<string[]>([]);
@@ -265,6 +270,13 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
         // Skip if this is a fresh leg (player remaining == baseScore and no throws processed yet)
         const isFreshLeg = currentPlayerLegData?.remaining === baseScore && turnScore === 0;
         if (isTurnEnd && currentNames.length === 0 && prevNames.length > 0 && !isFreshLeg) {
+            // Show next player overlay (only for multiplayer games)
+            const nextIndex = (currentPlayerIndex + 1) % players.length;
+            if (players.length > 1) {
+                setNextPlayerToShow(players[nextIndex]);
+                setShowNextPlayerOverlay(true);
+            }
+
             setLegData(prev => prev.map(ld => {
                 if (ld.playerId !== currentPlayer.id) return ld;
                 return {
@@ -276,7 +288,7 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
                 };
             }));
 
-            setCurrentPlayerIndex(prev => (prev + 1) % players.length);
+            setCurrentPlayerIndex(nextIndex);
             setTurnScore(0);
             setTurnThrows([]);
             setIsBust(false);
@@ -417,6 +429,19 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
         !isBust && !legWinnerId && currentPlayerLegData?.hasStarted && dartsRemaining > 0
         ? getCheckoutSuggestions(projectedScore, dartsRemaining, doubleOut)
         : [];
+
+    // Next player overlay (shows between turns)
+    if (showNextPlayerOverlay && nextPlayerToShow) {
+        return (
+            <NextPlayerOverlay
+                player={nextPlayerToShow}
+                onComplete={() => {
+                    setShowNextPlayerOverlay(false);
+                    setNextPlayerToShow(null);
+                }}
+            />
+        );
+    }
 
     // Victory overlay (shows first when match is won)
     if (matchWinnerId && showVictoryOverlay) {

@@ -217,3 +217,9 @@ button:active:not(:disabled) {
 .btn-scale-lg:hover:not(:disabled) {
   transform: scale(1.05);
 }
+
+/* Vertical text for peek tabs */
+.writing-mode-vertical {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
