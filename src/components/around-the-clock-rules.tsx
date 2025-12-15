@@ -1,33 +1,37 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export type ATCMode = 'full' | 'outer-single' | 'single' | 'double' | 'triple';
 export type ATCOrder = '1-20-bull' | '20-1-bull' | 'random-bull';
+export type ATCBullMode = 'both' | 'inner';
+export type ATCStartingOrder = 'listed' | 'random';
 
 export interface AroundTheClockSettings {
     mode: ATCMode;
     order: ATCOrder;
     multiplier: boolean;
     hitsRequired: number;
-    bullFinish: boolean;
+    bullMode: ATCBullMode;
+    startingOrder: ATCStartingOrder;
 }
 
 interface AroundTheClockRulesProps {
-    onNext: (settings: AroundTheClockSettings) => void;
-    onBack: () => void;
+    onSettingsChange: (settings: AroundTheClockSettings) => void;
     accentClass?: string;
     accentBorderClass?: string;
 }
 
-export function AroundTheClockRules({ onNext, onBack, accentClass = 'bg-blue-500/80', accentBorderClass = 'border-blue-400/50' }: AroundTheClockRulesProps) {
+export function AroundTheClockRules({ onSettingsChange, accentClass = 'bg-blue-500/80', accentBorderClass = 'border-blue-400/50' }: AroundTheClockRulesProps) {
     const [mode, setMode] = useState<ATCMode>('full');
     const [order, setOrder] = useState<ATCOrder>('1-20-bull');
     const [multiplier, setMultiplier] = useState(false);
     const [hitsRequired, setHitsRequired] = useState(1);
-    const [bullFinish, setBullFinish] = useState(true);
+    const [bullMode, setBullMode] = useState<ATCBullMode>('both');
+    const [startingOrder, setStartingOrder] = useState<ATCStartingOrder>('listed');
 
-    const handleNext = () => {
-        onNext({ mode, order, multiplier, hitsRequired, bullFinish });
-    };
+    // Notify parent of settings changes
+    useEffect(() => {
+        onSettingsChange({ mode, order, multiplier, hitsRequired, bullMode, startingOrder });
+    }, [mode, order, multiplier, hitsRequired, bullMode, startingOrder, onSettingsChange]);
 
     // Glassy button style with theme-aware accent
     const optionBtn = (active: boolean) =>
@@ -39,7 +43,7 @@ export function AroundTheClockRules({ onNext, onBack, accentClass = 'bg-blue-500
     return (
         <div className="flex flex-col items-center justify-center p-8 bg-white/5 border border-white/10 rounded-xl">
             {/* Rules List */}
-            <div className="w-full max-w-lg space-y-6 mb-8">
+            <div className="w-full max-w-lg space-y-6">
                 <h1 className="text-3xl font-bold text-white flex items-center gap-3">
                     ⏱️ Around the Clock
                 </h1>
@@ -119,36 +123,35 @@ export function AroundTheClockRules({ onNext, onBack, accentClass = 'bg-blue-500
                     </div>
                 </div>
 
-                {/* Bull Finish */}
+                {/* Finish Settings */}
                 <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
-                        Bull Finish
+                        Finish Settings
                     </label>
                     <div className="flex gap-2">
-                        <button onClick={() => setBullFinish(true)} className={optionBtn(bullFinish)}>
-                            On
+                        <button onClick={() => setBullMode('both')} className={optionBtn(bullMode === 'both')}>
+                            Outer & Inner
                         </button>
-                        <button onClick={() => setBullFinish(false)} className={optionBtn(!bullFinish)}>
-                            Off
+                        <button onClick={() => setBullMode('inner')} className={optionBtn(bullMode === 'inner')}>
+                            Inner Only
                         </button>
                     </div>
                 </div>
-            </div>
 
-            {/* Buttons */}
-            <div className="flex w-full justify-between gap-4">
-                <button
-                    onClick={onBack}
-                    className="px-6 py-3 text-sm text-zinc-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 rounded-lg border border-white/10"
-                >
-                    ← Back
-                </button>
-                <button
-                    onClick={handleNext}
-                    className={`px-6 py-3 ${accentClass} ${accentBorderClass} text-white font-bold rounded-lg hover:brightness-110 transition-all text-sm backdrop-blur-md border`}
-                >
-                    Next →
-                </button>
+                {/* Starting Order */}
+                <div>
+                    <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
+                        Starting Order
+                    </label>
+                    <div className="flex gap-2">
+                        <button onClick={() => setStartingOrder('listed')} className={optionBtn(startingOrder === 'listed')}>
+                            Listed
+                        </button>
+                        <button onClick={() => setStartingOrder('random')} className={optionBtn(startingOrder === 'random')}>
+                            Random
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
     );

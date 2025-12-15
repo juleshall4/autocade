@@ -15,7 +15,7 @@ import { SettingsContent, type AppearanceSettings, THEMES } from './components/s
 import { Popover } from './components/popover';
 import { IpSetup } from './components/ip-setup';
 import { getStatusEmoji } from './types/autodarts';
-import { Wifi, WifiOff, Gamepad2, Terminal, RotateCcw, Users, Settings as SettingsIcon, Maximize, Minimize, Globe } from 'lucide-react';
+import { Wifi, WifiOff, Gamepad2, Terminal, RotateCcw, Settings as SettingsIcon, Maximize, Minimize, Globe } from 'lucide-react';
 import { ManualEntryDrawer } from './components/manual-entry-drawer';
 import autodartsLogo from './assets/autodartgrey.png';
 
@@ -33,11 +33,11 @@ function App() {
 
   const [showSimulator, setShowSimulator] = useState(false);
   const [showConsole, setShowConsole] = useState(false);
-  const [showPlayerConfig, setShowPlayerConfig] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showQuitConfirm, setShowQuitConfirm] = useState(false);
   const [gameKey, setGameKey] = useState(0);
   const [currentView, setCurrentView] = useState<AppView>('game-selector');
+  const [gameMode, setGameMode] = useState<'quick-play' | 'tournament'>('quick-play');
   const [x01Settings, setX01Settings] = useState<X01Settings>({
     baseScore: 501,
     inMode: 'single',
@@ -52,7 +52,8 @@ function App() {
     order: '1-20-bull',
     multiplier: false,
     hitsRequired: 1,
-    bullFinish: true,
+    bullMode: 'both',
+    startingOrder: 'listed',
   });
 
   // Load appearance settings from localStorage
@@ -113,7 +114,12 @@ function App() {
     });
   }, [clearLogs, simulateState]);
 
-  const handleSelectGame = (gameId: string) => {
+  const handleSelectGame = (gameId: string, mode: 'quick-play' | 'tournament') => {
+    // TODO: Handle tournament mode differently
+    console.log(`Selected game: ${gameId}, mode: ${mode}`);
+    // Store the selected mode
+    setGameMode(mode);
+
     if (gameId === 'x01') {
       setCurrentView('x01-rules');
     } else if (gameId === 'around-the-clock') {
@@ -140,16 +146,50 @@ function App() {
         );
       case 'x01-rules':
         return (
-          <X01Rules
-            onNext={(settings) => {
-              setX01Settings(settings);
-              handleReset();
-              setCurrentView('x01-game');
-            }}
-            onBack={() => setCurrentView('game-selector')}
-            accentClass={currentTheme?.accent}
-            accentBorderClass={currentTheme?.accentBorder}
-          />
+          <div className="flex flex-col gap-6">
+            <div className="flex items-stretch gap-6">
+              <X01Rules
+                onSettingsChange={setX01Settings}
+                accentClass={currentTheme?.accent}
+                accentBorderClass={currentTheme?.accentBorder}
+              />
+              <div className="shrink-0 min-w-80 flex flex-col p-8 bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                <h2 className="text-3xl font-bold text-white mb-8 shrink-0">👤 Players</h2>
+                <div className="flex-1 relative min-h-0">
+                  <div className="absolute inset-0 overflow-y-auto">
+                    <PlayerConfigContent
+                      players={players}
+                      onAddPlayer={addPlayer}
+                      onRemovePlayer={removePlayer}
+                      onUpdateName={updatePlayerName}
+                      onUpdatePhoto={updatePlayerPhoto}
+                      onUpdateVictoryVideo={updateVictoryVideo}
+                      onToggleActive={togglePlayerActive}
+                      onReorderPlayers={reorderPlayers}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Back / Start buttons */}
+            <div className="flex w-full justify-between gap-4">
+              <button
+                onClick={() => setCurrentView('game-selector')}
+                className="px-6 py-3 text-sm text-zinc-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 rounded-lg border border-white/10"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={() => {
+                  handleReset();
+                  setCurrentView('x01-game');
+                }}
+                className={`px-6 py-3 ${currentTheme?.accent || 'bg-blue-500/80'} ${currentTheme?.accentBorder || 'border-blue-400/50'} text-white font-bold rounded-lg hover:brightness-110 transition-all text-sm backdrop-blur-md border`}
+              >
+                Start →
+              </button>
+            </div>
+          </div>
         );
       case 'x01-game':
         return (
@@ -179,16 +219,50 @@ function App() {
         );
       case 'atc-rules':
         return (
-          <AroundTheClockRules
-            onNext={(settings) => {
-              setAtcSettings(settings);
-              handleReset();
-              setCurrentView('atc-game');
-            }}
-            onBack={() => setCurrentView('game-selector')}
-            accentClass={currentTheme?.accent}
-            accentBorderClass={currentTheme?.accentBorder}
-          />
+          <div className="flex flex-col gap-6">
+            <div className="flex items-stretch gap-6">
+              <AroundTheClockRules
+                onSettingsChange={setAtcSettings}
+                accentClass={currentTheme?.accent}
+                accentBorderClass={currentTheme?.accentBorder}
+              />
+              <div className="shrink-0 min-w-80 flex flex-col p-8 bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                <h2 className="text-3xl font-bold text-white mb-8 shrink-0">👤 Players</h2>
+                <div className="flex-1 relative min-h-0">
+                  <div className="absolute inset-0 overflow-y-auto">
+                    <PlayerConfigContent
+                      players={players}
+                      onAddPlayer={addPlayer}
+                      onRemovePlayer={removePlayer}
+                      onUpdateName={updatePlayerName}
+                      onUpdatePhoto={updatePlayerPhoto}
+                      onUpdateVictoryVideo={updateVictoryVideo}
+                      onToggleActive={togglePlayerActive}
+                      onReorderPlayers={reorderPlayers}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Back / Start buttons */}
+            <div className="flex w-full justify-between gap-4">
+              <button
+                onClick={() => setCurrentView('game-selector')}
+                className="px-6 py-3 text-sm text-zinc-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 rounded-lg border border-white/10"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={() => {
+                  handleReset();
+                  setCurrentView('atc-game');
+                }}
+                className={`px-6 py-3 ${currentTheme?.accent || 'bg-blue-500/80'} ${currentTheme?.accentBorder || 'border-blue-400/50'} text-white font-bold rounded-lg hover:brightness-110 transition-all text-sm backdrop-blur-md border`}
+              >
+                Start →
+              </button>
+            </div>
+          </div>
         );
       case 'atc-game':
         return (
@@ -281,39 +355,6 @@ function App() {
               {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
             </span>
           </div>
-
-          {/* Players Popover - hidden during active game */}
-          {currentView !== 'x01-game' && currentView !== 'atc-game' && (
-            <Popover
-              isOpen={showPlayerConfig}
-              onClose={() => setShowPlayerConfig(false)}
-              align="right"
-              trigger={
-                <div className="relative group">
-                  <button
-                    onClick={() => setShowPlayerConfig(!showPlayerConfig)}
-                    className="btn-scale-lg p-2.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-zinc-300 hover:bg-white/20 transition-colors"
-                  >
-                    <Users className="w-5 h-5" />
-                  </button>
-                  <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 text-xs bg-black/80 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-                    Players
-                  </span>
-                </div>
-              }
-            >
-              <PlayerConfigContent
-                players={players}
-                onAddPlayer={addPlayer}
-                onRemovePlayer={removePlayer}
-                onUpdateName={updatePlayerName}
-                onUpdatePhoto={updatePlayerPhoto}
-                onUpdateVictoryVideo={updateVictoryVideo}
-                onToggleActive={togglePlayerActive}
-                onReorderPlayers={reorderPlayers}
-              />
-            </Popover>
-          )}
 
           {/* Quit Button - only during active game */}
           {(currentView === 'x01-game' || currentView === 'atc-game') && (

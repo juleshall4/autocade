@@ -28,21 +28,20 @@ interface PlayerGameData {
 
 const MAX_THROWS_PER_TURN = 3;
 
-// Generate the sequence based on order setting and bullFinish
-function generateSequence(order: ATCOrder, bullFinish: boolean): number[] {
-    const bull = bullFinish ? [25] : [];
+// Generate the sequence based on order setting - always ends with bull
+function generateSequence(order: ATCOrder): number[] {
     if (order === '1-20-bull') {
-        return [...Array.from({ length: 20 }, (_, i) => i + 1), ...bull];
+        return [...Array.from({ length: 20 }, (_, i) => i + 1), 25];
     } else if (order === '20-1-bull') {
-        return [...Array.from({ length: 20 }, (_, i) => 20 - i), ...bull];
+        return [...Array.from({ length: 20 }, (_, i) => 20 - i), 25];
     } else {
-        // Random order, shuffle 1-20, then bull at end if enabled
+        // Random order, shuffle 1-20, then bull at end
         const nums = Array.from({ length: 20 }, (_, i) => i + 1);
         for (let i = nums.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             [nums[i], nums[j]] = [nums[j], nums[i]];
         }
-        return [...nums, ...bull];
+        return [...nums, 25];
     }
 }
 
@@ -68,7 +67,7 @@ export function AroundTheClockGame({
     gameViewScale = 100,
 }: AroundTheClockGameProps) {
     // Generate sequence once on mount
-    const [sequence] = useState<number[]>(() => generateSequence(settings.order, settings.bullFinish));
+    const [sequence] = useState<number[]>(() => generateSequence(settings.order));
 
     // Player data
     const [playerData, setPlayerData] = useState<PlayerGameData[]>(() =>
@@ -95,13 +94,13 @@ export function AroundTheClockGame({
 
     // Reinitialize on player/settings change
     useEffect(() => {
-        const newSequence = generateSequence(settings.order, settings.bullFinish);
+        const newSequence = generateSequence(settings.order);
         setPlayerData(players.map(p => createPlayerData(p.id, newSequence)));
         setCurrentPlayerIndex(0);
         setWinnerId(null);
         setTurnThrows([]);
         prevThrowsRef.current = [];
-    }, [players.length, settings.order, settings.bullFinish]);
+    }, [players.length, settings.order]);
 
     // Get next target index for a player
     const getNextTarget = useCallback((targetsHit: number[]): number | null => {
@@ -124,6 +123,18 @@ export function AroundTheClockGame({
         // Must hit the correct number
         if (num !== target) return 0;
 
+        // Special handling for bull (25)
+        if (target === 25) {
+            // D25 is inner bull, S25 is outer bull
+            if (settings.bullMode === 'inner') {
+                // Inner only mode: only D25 counts
+                return prefix === 'D' ? 1 : 0;
+            } else {
+                // Both mode: S25 and D25 both count
+                return (prefix === 'S' || prefix === 'D') ? 1 : 0;
+            }
+        }
+
         // For "full" mode, any hit on the number counts with multiplier
         if (settings.mode === 'full') {
             if (prefix === 'T') return 3;
@@ -138,7 +149,7 @@ export function AroundTheClockGame({
         if (settings.mode === 'triple' && prefix === 'T') return 1; // Only counts as 1 in triple mode
 
         return 0;
-    }, [settings.mode]);
+    }, [settings.mode, settings.bullMode]);
 
     // Legacy helper for hit detection
     const isHit = useCallback((throwName: string, target: number): boolean => {

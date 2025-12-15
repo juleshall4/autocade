@@ -75,9 +75,9 @@ export function PlayerConfigContent({
 
     return (
         <>
-            <div className="w-80 max-h-96 flex flex-col">
+            <div className="w-full h-full flex flex-col min-h-0">
                 {/* Player list */}
-                <div className="space-y-2 p-3 overflow-y-auto flex-1">
+                <div className="space-y-3 overflow-y-auto flex-1 min-h-0">
                     {players.map(player => {
                         const isExpanded = expandedPlayerId === player.id;
 
@@ -85,7 +85,7 @@ export function PlayerConfigContent({
                             <div
                                 key={player.id}
                                 className={`rounded-lg border transition-all ${player.isActive
-                                    ? 'bg-white/15 border-white/20'
+                                    ? 'bg-white/10 border-white/20'
                                     : 'bg-white/5 border-white/10 opacity-60'
                                     }`}
                             >
@@ -239,7 +239,7 @@ export function PlayerConfigContent({
                 {/* Add player button */}
                 <button
                     onClick={onAddPlayer}
-                    className="mx-3 mb-3 py-2 border border-dashed border-white/20 rounded-lg text-zinc-400 hover:text-white hover:border-white/40 transition-colors flex items-center justify-center gap-2 text-sm"
+                    className="py-2 border border-dashed border-white/20 rounded-lg text-zinc-400 hover:text-white hover:border-white/40 transition-colors flex items-center justify-center gap-2 text-sm"
                 >
                     <Plus className="w-3 h-3" />
                     Add Player

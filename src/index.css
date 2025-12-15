@@ -223,3 +223,26 @@ button:active:not(:disabled) {
   writing-mode: vertical-rl;
   text-orientation: mixed;
 }
+
+/* Fade in animations for game selector */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}

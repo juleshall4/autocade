@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 export type X01Mode = 'single' | 'double';
 export type MatchMode = 'off' | 'legs' | 'sets';
-export type StartingOrder = 'random' | 'bull-off';
+export type StartingOrder = 'listed' | 'random' | 'bull-off';
 
 export interface X01Settings {
     baseScore: number;
@@ -15,8 +15,7 @@ export interface X01Settings {
 }
 
 interface X01RulesProps {
-    onNext: (settings: X01Settings) => void;
-    onBack: () => void;
+    onSettingsChange: (settings: X01Settings) => void;
     accentClass?: string;
     accentBorderClass?: string;
 }
@@ -25,18 +24,19 @@ const BASE_SCORES = [121, 170, 301, 501, 701, 901];
 const LEGS_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
 const SETS_OPTIONS = [1, 2, 3, 4, 5, 6, 7];
 
-export function X01Rules({ onNext, onBack, accentClass = 'bg-blue-500/80', accentBorderClass = 'border-blue-400/50' }: X01RulesProps) {
+export function X01Rules({ onSettingsChange, accentClass = 'bg-blue-500/80', accentBorderClass = 'border-blue-400/50' }: X01RulesProps) {
     const [baseScore, setBaseScore] = useState(501);
     const [inMode, setInMode] = useState<X01Mode>('single');
     const [outMode, setOutMode] = useState<X01Mode>('double');
     const [matchMode, setMatchMode] = useState<MatchMode>('off');
     const [legsToWin, setLegsToWin] = useState(3);
     const [setsToWin, setSetsToWin] = useState(3);
-    const [startingOrder, setStartingOrder] = useState<StartingOrder>('random');
+    const [startingOrder, setStartingOrder] = useState<StartingOrder>('listed');
 
-    const handleNext = () => {
-        onNext({ baseScore, inMode, outMode, matchMode, legsToWin, setsToWin, startingOrder });
-    };
+    // Notify parent of settings changes
+    useEffect(() => {
+        onSettingsChange({ baseScore, inMode, outMode, matchMode, legsToWin, setsToWin, startingOrder });
+    }, [baseScore, inMode, outMode, matchMode, legsToWin, setsToWin, startingOrder, onSettingsChange]);
 
     // Glassy button style with theme-aware accent
     const optionBtn = (active: boolean) =>
@@ -48,7 +48,7 @@ export function X01Rules({ onNext, onBack, accentClass = 'bg-blue-500/80', accen
     return (
         <div className="flex flex-col items-center justify-center p-8 bg-white/5 border border-white/10 rounded-xl">
             {/* Rules List */}
-            <div className="w-full max-w-sm space-y-6 mb-8">
+            <div className="w-full max-w-sm space-y-6">
                 <h1 className="text-3xl font-bold text-white flex items-center gap-3">
                     🎯 X01
                 </h1>
@@ -163,6 +163,9 @@ export function X01Rules({ onNext, onBack, accentClass = 'bg-blue-500/80', accen
                         Starting Order
                     </label>
                     <div className="flex flex-wrap gap-2">
+                        <button onClick={() => setStartingOrder('listed')} className={optionBtn(startingOrder === 'listed')}>
+                            Listed
+                        </button>
                         <button onClick={() => setStartingOrder('random')} className={optionBtn(startingOrder === 'random')}>
                             Random
                         </button>
@@ -171,22 +174,6 @@ export function X01Rules({ onNext, onBack, accentClass = 'bg-blue-500/80', accen
                         </button>
                     </div>
                 </div>
-            </div>
-
-            {/* Buttons */}
-            <div className="flex w-full justify-between gap-4">
-                <button
-                    onClick={onBack}
-                    className="px-6 py-3 text-sm text-zinc-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 rounded-lg border border-white/10"
-                >
-                    ← Back
-                </button>
-                <button
-                    onClick={handleNext}
-                    className={`px-6 py-3 ${accentClass} ${accentBorderClass} text-white font-bold rounded-lg hover:brightness-110 transition-all text-sm backdrop-blur-md border`}
-                >
-                    Next →
-                </button>
             </div>
         </div>
     );

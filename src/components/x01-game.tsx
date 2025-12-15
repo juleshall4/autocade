@@ -288,6 +288,13 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
                 };
             }));
 
+            // Announce round total if turn ends early (before 3rd dart) and score > 0
+            if (!isBust && turnScore > 0 && prevNames.length < 3 && caller.settings.announceRoundTotal) {
+                caller.callScore(turnScore);
+            } else if (!isBust && turnScore === 0 && caller.settings.announceBusts) {
+                caller.callNoScore();
+            }
+
             setCurrentPlayerIndex(nextIndex);
             setTurnScore(0);
             setTurnThrows([]);
