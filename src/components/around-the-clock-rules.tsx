@@ -4,6 +4,8 @@ export type ATCMode = 'full' | 'outer-single' | 'single' | 'double' | 'triple';
 export type ATCOrder = '1-20-bull' | '20-1-bull' | 'random-bull';
 export type ATCBullMode = 'both' | 'inner';
 export type ATCStartingOrder = 'listed' | 'random';
+export type TournamentFormat = 'round-robin' | 'single-bracket' | 'double-bracket';
+export type GameMode = 'quick-play' | 'tournament';
 
 export interface AroundTheClockSettings {
     mode: ATCMode;
@@ -12,26 +14,29 @@ export interface AroundTheClockSettings {
     hitsRequired: number;
     bullMode: ATCBullMode;
     startingOrder: ATCStartingOrder;
+    tournamentFormat?: TournamentFormat;
+    gamesPerMatch?: number;
 }
 
 interface AroundTheClockRulesProps {
     onSettingsChange: (settings: AroundTheClockSettings) => void;
+    initialSettings?: AroundTheClockSettings;
+    gameMode?: GameMode;
     accentClass?: string;
     accentBorderClass?: string;
 }
 
-export function AroundTheClockRules({ onSettingsChange, accentClass = 'bg-blue-500/80', accentBorderClass = 'border-blue-400/50' }: AroundTheClockRulesProps) {
-    const [mode, setMode] = useState<ATCMode>('full');
-    const [order, setOrder] = useState<ATCOrder>('1-20-bull');
-    const [multiplier, setMultiplier] = useState(false);
-    const [hitsRequired, setHitsRequired] = useState(1);
-    const [bullMode, setBullMode] = useState<ATCBullMode>('both');
-    const [startingOrder, setStartingOrder] = useState<ATCStartingOrder>('listed');
+export function AroundTheClockRules({ onSettingsChange, initialSettings, accentClass = 'bg-blue-500/80', accentBorderClass = 'border-blue-400/50' }: AroundTheClockRulesProps) {
+    const [mode, setMode] = useState<ATCMode>(initialSettings?.mode ?? 'full');
+    const [order, setOrder] = useState<ATCOrder>(initialSettings?.order ?? '1-20-bull');
+    const [multiplier, setMultiplier] = useState(initialSettings?.multiplier ?? false);
+    const [hitsRequired, setHitsRequired] = useState(initialSettings?.hitsRequired ?? 1);
+    const [bullMode, setBullMode] = useState<ATCBullMode>(initialSettings?.bullMode ?? 'both');
 
     // Notify parent of settings changes
     useEffect(() => {
-        onSettingsChange({ mode, order, multiplier, hitsRequired, bullMode, startingOrder });
-    }, [mode, order, multiplier, hitsRequired, bullMode, startingOrder, onSettingsChange]);
+        onSettingsChange({ mode, order, multiplier, hitsRequired, bullMode, startingOrder: 'listed' });
+    }, [mode, order, multiplier, hitsRequired, bullMode, onSettingsChange]);
 
     // Glassy button style with theme-aware accent
     const optionBtn = (active: boolean) =>
@@ -44,12 +49,12 @@ export function AroundTheClockRules({ onSettingsChange, accentClass = 'bg-blue-5
         <div className="flex flex-col items-center justify-center p-8 bg-white/5 border border-white/10 rounded-xl">
             {/* Rules List */}
             <div className="w-full max-w-lg space-y-6">
-                <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+                <h1 className="text-3xl font-bold text-white flex items-center gap-3" style={{ opacity: 0, animation: 'fadeIn 0.5s ease-out forwards' }}>
                     ⏱️ Around the Clock
                 </h1>
 
                 {/* Mode */}
-                <div>
+                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.1s forwards' }}>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Mode
                     </label>
@@ -73,7 +78,7 @@ export function AroundTheClockRules({ onSettingsChange, accentClass = 'bg-blue-5
                 </div>
 
                 {/* Order */}
-                <div>
+                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.15s forwards' }}>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Order
                     </label>
@@ -91,7 +96,7 @@ export function AroundTheClockRules({ onSettingsChange, accentClass = 'bg-blue-5
                 </div>
 
                 {/* Multiplier */}
-                <div>
+                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.2s forwards' }}>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Multiplier
                     </label>
@@ -106,7 +111,7 @@ export function AroundTheClockRules({ onSettingsChange, accentClass = 'bg-blue-5
                 </div>
 
                 {/* Hits Required */}
-                <div>
+                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.25s forwards' }}>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Hits Required
                     </label>
@@ -124,9 +129,9 @@ export function AroundTheClockRules({ onSettingsChange, accentClass = 'bg-blue-5
                 </div>
 
                 {/* Finish Settings */}
-                <div>
+                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.3s forwards' }}>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
-                        Finish Settings
+                        Bull Finish
                     </label>
                     <div className="flex gap-2">
                         <button onClick={() => setBullMode('both')} className={optionBtn(bullMode === 'both')}>
@@ -134,21 +139,6 @@ export function AroundTheClockRules({ onSettingsChange, accentClass = 'bg-blue-5
                         </button>
                         <button onClick={() => setBullMode('inner')} className={optionBtn(bullMode === 'inner')}>
                             Inner Only
-                        </button>
-                    </div>
-                </div>
-
-                {/* Starting Order */}
-                <div>
-                    <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
-                        Starting Order
-                    </label>
-                    <div className="flex gap-2">
-                        <button onClick={() => setStartingOrder('listed')} className={optionBtn(startingOrder === 'listed')}>
-                            Listed
-                        </button>
-                        <button onClick={() => setStartingOrder('random')} className={optionBtn(startingOrder === 'random')}>
-                            Random
                         </button>
                     </div>
                 </div>

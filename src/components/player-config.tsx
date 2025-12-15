@@ -78,7 +78,7 @@ export function PlayerConfigContent({
             <div className="w-full h-full flex flex-col min-h-0">
                 {/* Player list */}
                 <div className="space-y-3 overflow-y-auto flex-1 min-h-0">
-                    {players.map(player => {
+                    {players.map((player, index) => {
                         const isExpanded = expandedPlayerId === player.id;
 
                         return (
@@ -88,10 +88,11 @@ export function PlayerConfigContent({
                                     ? 'bg-white/10 border-white/20'
                                     : 'bg-white/5 border-white/10 opacity-60'
                                     }`}
+                                style={{ opacity: 0, animation: `fadeInUp 0.5s ease-out ${0.1 + index * 0.06}s forwards` }}
                             >
                                 {/* Collapsed view */}
                                 <div
-                                    className="flex items-center gap-2 p-2 cursor-pointer"
+                                    className="flex items-center gap-2 p-1.5 cursor-pointer"
                                     onClick={() => toggleExpand(player.id)}
                                     draggable
                                     onDragStart={(e) => handleDragStart(e, players.indexOf(player))}
@@ -109,14 +110,14 @@ export function PlayerConfigContent({
                                     {/* Active toggle */}
                                     <button
                                         onClick={e => { e.stopPropagation(); onToggleActive(player.id); }}
-                                        className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${player.isActive ? 'bg-blue-500/80 border-blue-400' : 'border-zinc-500'
+                                        className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${player.isActive ? 'bg-blue-500/80 border-blue-400' : 'border-zinc-500'
                                             }`}
                                     >
-                                        {player.isActive && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+                                        {player.isActive && <div className="w-1 h-1 bg-white rounded-full" />}
                                     </button>
 
                                     {/* Photo */}
-                                    <div className="w-8 h-8 rounded-full bg-zinc-700 shrink-0 overflow-hidden">
+                                    <div className="w-6 h-6 rounded-full bg-zinc-700 shrink-0 overflow-hidden">
                                         {player.photo ? (
                                             <img src={player.photo} alt={player.name} className="w-full h-full object-cover" />
                                         ) : (

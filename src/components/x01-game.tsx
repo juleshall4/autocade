@@ -15,7 +15,6 @@ interface X01GameProps {
     onPlayAgain: () => void;
     onLegStart: () => void;
     themeGlow?: string;
-    playerListScale?: number;
     gameViewScale?: number;
 }
 
@@ -72,7 +71,7 @@ function createMatchData(playerId: string): PlayerMatchData {
     };
 }
 
-export function X01Game({ state, settings, players, onPlayAgain, onLegStart, themeGlow, playerListScale = 100, gameViewScale = 100 }: X01GameProps) {
+export function X01Game({ state, settings, players, onPlayAgain, onLegStart, themeGlow, gameViewScale = 100 }: X01GameProps) {
     const { baseScore, inMode, outMode, matchMode, legsToWin, setsToWin } = settings;
 
     // Caller for score announcements

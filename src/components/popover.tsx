@@ -45,7 +45,7 @@ export function Popover({ trigger, children, isOpen, onClose, align = 'right' }:
             {isOpen && (
                 <div
                     ref={popoverRef}
-                    className={`absolute top-full mt-2 ${align === 'right' ? 'right-0' : 'left-0'} z-50 bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl overflow-hidden`}
+                    className={`absolute top-full mt-2 ${align === 'right' ? 'right-0' : 'left-0'} z-[100] bg-white/10 backdrop-blur-xl border border-white/20 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200`}
                 >
                     {children}
                 </div>
