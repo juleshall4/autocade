@@ -18,6 +18,7 @@ import { getStatusEmoji } from './types/autodarts';
 import { Wifi, WifiOff, RotateCcw, Settings as SettingsIcon, Maximize, Minimize } from 'lucide-react';
 import { ManualEntryDrawer } from './components/manual-entry-drawer';
 import autodartsLogo from './assets/autodartgrey.png';
+import wled from './services/wled';
 
 type AppView = 'game' | 'game-selector' | 'x01-rules' | 'x01-game' | 'atc-rules' | 'atc-game' | 'killer-rules' | 'killer-game';
 
@@ -62,11 +63,11 @@ function App() {
     startingOrder: 'listed',
   });
   const [killerSettings, setKillerSettings] = useState<KillerSettings>({
-    startingLives: 3,
-    activationZone: 'full',
-    killZone: 'full',
+    startingLives: 5,
+    mode: 'full',
     multiplier: false,
     suicide: false,
+    killerVsKiller: 'life',
     startingOrder: 'listed',
   });
 
@@ -155,6 +156,7 @@ function App() {
 
     setGamePlayers(orderedPlayers);
     handleReset();
+    wled.gameOn();
 
     if (gameId === 'x01') {
       setCurrentView('x01-game');
@@ -215,7 +217,7 @@ function App() {
               <div className="shrink-0 min-w-80 flex flex-col p-8 bg-white/5 border border-white/10 rounded-xl overflow-hidden">
 
                 {/* Starting Order */}
-                <div className="mb-6 shrink-0" style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.1s forwards' }}>
+                <div className="mb-6 shrink-0">
                   <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                     Starting Order
                   </label>
@@ -324,7 +326,7 @@ function App() {
               <div className="shrink-0 min-w-80 flex flex-col p-8 bg-white/5 border border-white/10 rounded-xl overflow-hidden">
 
                 {/* Starting Order */}
-                <div className="mb-6 shrink-0" style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.1s forwards' }}>
+                <div className="mb-6 shrink-0">
                   <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                     Starting Order
                   </label>
@@ -410,7 +412,7 @@ function App() {
               <div className="shrink-0 min-w-80 flex flex-col p-8 bg-white/5 border border-white/10 rounded-xl overflow-hidden">
 
                 {/* Starting Order */}
-                <div className="mb-6 shrink-0" style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.1s forwards' }}>
+                <div className="mb-6 shrink-0">
                   <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                     Starting Order
                   </label>
@@ -480,6 +482,7 @@ function App() {
               setCurrentView('killer-rules');
             }}
             gameViewScale={appearance.gameViewScale}
+            themeGlow={currentTheme?.glow}
           />
         );
       default:
@@ -511,8 +514,41 @@ function App() {
       {/* Main Panel */}
       <div className="w-full h-full flex flex-col relative">
 
-        {/* Status indicator - top left */}
-        <div className="absolute top-4 left-4 z-10 flex items-center gap-3">
+        {/* Top bar - left: Logo and Game Mode */}
+        <div className="absolute top-3 left-6 z-10 flex items-end gap-3">
+          {(currentView.endsWith('-game') || currentView === 'game') && (
+            <>
+              <div style={{ fontFamily: "'Jersey 10', cursive" }} className="font-bold text-4xl">autocade</div>
+              {currentView !== 'game' && (
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-1 h-1 rounded-full bg-white/30" />
+                  <div className="text-zinc-500 font-light text-lg">
+                    {currentView === 'x01-game' && 'X01'}
+                    {currentView === 'atc-game' && 'Around The Clock'}
+                    {currentView === 'killer-game' && 'Killer'}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* Top bar - right: Monitors, Controls */}
+        <div className="absolute top-4 right-4 flex items-center gap-3 z-50">
+
+          {/* Fullscreen - Always Leftmost */}
+          <div className="relative group">
+            <button
+              onClick={toggleFullscreen}
+              className="p-2.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-zinc-300 hover:bg-white/20 transition-colors"
+            >
+              {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+            </button>
+            <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 text-xs bg-black/80 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
+              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+            </span>
+          </div>
+
           {/* Connection Status */}
           {appearance.showConnectionStatus && (
             <div className="relative group">
@@ -524,6 +560,7 @@ function App() {
               </span>
             </div>
           )}
+
           {/* Board Status */}
           {appearance.showBoardStatus && (
             <div className="relative group">
@@ -535,16 +572,18 @@ function App() {
               </span>
             </div>
           )}
-        </div>
 
-        {/* Top bar - right: icon buttons with tooltips */}
-        <div className="absolute top-4 right-4 flex items-center gap-3 z-50">
           {/* Quit Button - only during active game */}
           {(currentView === 'x01-game' || currentView === 'atc-game' || currentView === 'killer-game') && (
             <button
               onClick={() => {
                 if (showQuitConfirm) {
-                  setCurrentView('game-selector');
+                  // Navigate back to the specific rules page for the current game
+                  if (currentView === 'x01-game') setCurrentView('x01-rules');
+                  else if (currentView === 'atc-game') setCurrentView('atc-rules');
+                  else if (currentView === 'killer-game') setCurrentView('killer-rules');
+                  else setCurrentView('game-selector'); // Fallback
+
                   setShowQuitConfirm(false);
                 } else {
                   setShowQuitConfirm(true);
@@ -558,19 +597,6 @@ function App() {
             </button>
           )}
 
-          {/* Fullscreen */}
-          <div className="relative group">
-            <button
-              onClick={toggleFullscreen}
-              className="btn-scale-lg p-2.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-zinc-300 hover:bg-white/20 transition-colors"
-            >
-              {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
-            </button>
-            <span className="absolute top-full left-1/2 -translate-x-1/2 mt-2 px-2 py-1 text-xs bg-black/80 text-white rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-              {isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-            </span>
-          </div>
-
           {/* Settings Popover */}
           <Popover
             isOpen={showSettings}
@@ -580,7 +606,7 @@ function App() {
               <div className="relative group">
                 <button
                   onClick={() => setShowSettings(!showSettings)}
-                  className="btn-scale-lg p-2.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-zinc-300 hover:bg-white/20 transition-colors"
+                  className="p-2.5 rounded-lg bg-white/10 backdrop-blur-md border border-white/10 text-zinc-300 hover:bg-white/20 transition-colors"
                 >
                   <SettingsIcon className="w-5 h-5" />
                 </button>

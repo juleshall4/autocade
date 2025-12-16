@@ -257,6 +257,8 @@ export function ManualEntryDrawer({ currentState, onSimulateThrow }: ManualEntry
                             </button>
                         </div>
 
+
+
                         {/* Multiplier selector - vertical */}
                         <div className="flex gap-1 mb-3">
                             <button onClick={() => setMultiplier(1)} className={`flex-1 ${multiplierBtn(1, multiplier === 1)}`}>
@@ -307,6 +309,19 @@ export function ManualEntryDrawer({ currentState, onSimulateThrow }: ManualEntry
                             >
                                 Bull
                             </button>
+                        </div>
+
+                        {/* Throw History */}
+                        <div className="flex items-center justify-center gap-2 mb-3 min-h-[20px]">
+                            {currentThrows.length === 0 ? (
+                                <span className="text-xs text-zinc-500 italic">No throws</span>
+                            ) : (
+                                currentThrows.map((t, i) => (
+                                    <span key={i} className="text-xs font-mono font-bold text-zinc-400">
+                                        {t.segment.name}{i < currentThrows.length - 1 ? ', ' : ''}
+                                    </span>
+                                ))
+                            )}
                         </div>
 
                         {/* Undo and Next Turn buttons */}

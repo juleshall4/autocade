@@ -34,7 +34,8 @@ interface DartPosition {
 interface DartboardProps {
   darts?: DartPosition[];
   size?: number;
-  highlightSegment?: string; // e.g., 'T20', 'D16', 'S6', 'Bull', '25'
+  highlightSegment?: string; // Legacy support (single)
+  highlightSegments?: string[]; // New support (multiple)
   glowColor?: string;
 }
 
@@ -70,32 +71,34 @@ const getSegmentFromStr = (str: string): SegmentInfo | null => {
   return { type, num };
 };
 
-export function Dartboard({ darts = [], size = 600, highlightSegment, glowColor }: DartboardProps) {
-  // Parse the highlight segment once
-  const highlightInfo = highlightSegment ? getSegmentFromStr(highlightSegment) : null;
+export function Dartboard({ darts = [], size = 600, highlightSegment, highlightSegments = [], glowColor }: DartboardProps) {
+  // Parse all highlight segments
+  const allSegments = [...highlightSegments, ...(highlightSegment ? [highlightSegment] : [])];
+  const highlightInfos = allSegments.map(s => getSegmentFromStr(s)).filter((i): i is SegmentInfo => i !== null);
 
   // Check if a segment type/num should be highlighted
   const isHighlighted = (type: string, num: number): boolean => {
-    if (!highlightInfo) return false;
-    if (highlightInfo.num !== num) return false;
+    return highlightInfos.some(info => {
+      if (info.num !== num) return false;
 
-    // 'full' highlights all parts of the segment (double, triple, inner single, outer single)
-    if (highlightInfo.type === 'full') {
-      return type === 'double' || type === 'triple' || type === 'innerSingle' || type === 'outerSingle';
-    }
+      // 'full' highlights all parts of the segment (double, triple, inner single, outer single)
+      if (info.type === 'full') {
+        return type === 'double' || type === 'triple' || type === 'innerSingle' || type === 'outerSingle';
+      }
 
-    // 'fullBull' highlights both bull rings
-    if (highlightInfo.type === 'fullBull') {
-      return type === 'singleBull' || type === 'doubleBull';
-    }
+      // 'fullBull' highlights both bull rings
+      if (info.type === 'fullBull') {
+        return type === 'singleBull' || type === 'doubleBull';
+      }
 
-    // 'single' matches both inner and outer single
-    if (highlightInfo.type === 'single') {
-      return type === 'innerSingle' || type === 'outerSingle';
-    }
+      // 'single' matches both inner and outer single
+      if (info.type === 'single') {
+        return type === 'innerSingle' || type === 'outerSingle';
+      }
 
-    // Direct match for specific types
-    return type === highlightInfo.type;
+      // Direct match for specific types
+      return type === info.type;
+    });
   };
 
   // Generate segment paths

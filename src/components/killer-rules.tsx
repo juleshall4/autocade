@@ -2,13 +2,14 @@ import { useState, useEffect } from 'react';
 
 export type ZoneType = 'full' | 'outer-single' | 'single' | 'double' | 'triple';
 export type StartingOrder = 'listed' | 'random';
+export type KillerVsKillerType = 'life' | 'status' | 'both';
 
 export interface KillerSettings {
     startingLives: number;
-    activationZone: ZoneType;
-    killZone: ZoneType;
+    mode: ZoneType;
     multiplier: boolean;
     suicide: boolean;
+    killerVsKiller: KillerVsKillerType;
     startingOrder: StartingOrder;
 }
 
@@ -29,12 +30,12 @@ const ZONE_OPTIONS: { id: ZoneType; name: string }[] = [
 ];
 
 export function KillerRules({ onSettingsChange, initialSettings, accentClass = 'bg-blue-500/80', accentBorderClass = 'border-blue-400/50' }: KillerRulesProps) {
-    const [startingLives, setStartingLives] = useState(initialSettings?.startingLives ?? 3);
+    const [startingLives, setStartingLives] = useState(initialSettings?.startingLives ?? 5);
     const [customLives, setCustomLives] = useState<number | null>(null);
-    const [activationZone, setActivationZone] = useState<ZoneType>(initialSettings?.activationZone ?? 'full');
-    const [killZone, setKillZone] = useState<ZoneType>(initialSettings?.killZone ?? 'full');
+    const [mode, setMode] = useState<ZoneType>(initialSettings?.mode ?? 'full');
     const [multiplier, setMultiplier] = useState(initialSettings?.multiplier ?? false);
     const [suicide, setSuicide] = useState(initialSettings?.suicide ?? false);
+    const [killerVsKiller, setKillerVsKiller] = useState<KillerVsKillerType>(initialSettings?.killerVsKiller ?? 'life');
 
     const effectiveLives = customLives !== null ? customLives : startingLives;
 
@@ -42,13 +43,13 @@ export function KillerRules({ onSettingsChange, initialSettings, accentClass = '
     useEffect(() => {
         onSettingsChange({
             startingLives: effectiveLives,
-            activationZone,
-            killZone,
+            mode,
             multiplier,
             suicide,
+            killerVsKiller,
             startingOrder: 'listed',
         });
-    }, [effectiveLives, activationZone, killZone, multiplier, suicide, onSettingsChange]);
+    }, [effectiveLives, mode, multiplier, suicide, killerVsKiller, onSettingsChange]);
 
     // Glassy button style with theme-aware accent
     const optionBtn = (active: boolean) =>
@@ -67,12 +68,12 @@ export function KillerRules({ onSettingsChange, initialSettings, accentClass = '
         <div className="flex flex-col items-center justify-center p-8 bg-white/5 border border-white/10 rounded-xl">
             {/* Rules List */}
             <div className="w-full max-w-md space-y-6">
-                <h1 className="text-3xl font-bold text-white flex items-center gap-3" style={{ opacity: 0, animation: 'fadeIn 0.5s ease-out forwards' }}>
-                    🗡️ Killer
+                <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+                    Killer
                 </h1>
 
                 {/* Starting Lives */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.1s forwards' }}>
+                <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Player Hearts
                     </label>
@@ -92,35 +93,17 @@ export function KillerRules({ onSettingsChange, initialSettings, accentClass = '
                     </div>
                 </div>
 
-                {/* Activation Zone */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.15s forwards' }}>
+                {/* Mode */}
+                <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
-                        Health Zone
+                        Mode
                     </label>
                     <div className="flex flex-wrap gap-2">
                         {ZONE_OPTIONS.map(zone => (
                             <button
                                 key={zone.id}
-                                onClick={() => setActivationZone(zone.id)}
-                                className={optionBtn(activationZone === zone.id)}
-                            >
-                                {zone.name}
-                            </button>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Kill Zone */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.2s forwards' }}>
-                    <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
-                        Kill Zone
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                        {ZONE_OPTIONS.map(zone => (
-                            <button
-                                key={zone.id}
-                                onClick={() => setKillZone(zone.id)}
-                                className={optionBtn(killZone === zone.id)}
+                                onClick={() => setMode(zone.id)}
+                                className={optionBtn(mode === zone.id)}
                             >
                                 {zone.name}
                             </button>
@@ -129,7 +112,7 @@ export function KillerRules({ onSettingsChange, initialSettings, accentClass = '
                 </div>
 
                 {/* Multiplier */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.25s forwards' }}>
+                <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Multiplier
                     </label>
@@ -144,7 +127,7 @@ export function KillerRules({ onSettingsChange, initialSettings, accentClass = '
                 </div>
 
                 {/* Suicide */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.3s forwards' }}>
+                <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Suicide
                     </label>
@@ -154,6 +137,24 @@ export function KillerRules({ onSettingsChange, initialSettings, accentClass = '
                         </button>
                         <button onClick={() => setSuicide(true)} className={toggleBtn(suicide)}>
                             On
+                        </button>
+                    </div>
+                </div>
+
+                {/* Killer vs Killer */}
+                <div>
+                    <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
+                        Killer vs Killer
+                    </label>
+                    <div className="flex gap-2">
+                        <button onClick={() => setKillerVsKiller('life')} className={optionBtn(killerVsKiller === 'life')}>
+                            Lose Life
+                        </button>
+                        <button onClick={() => setKillerVsKiller('status')} className={optionBtn(killerVsKiller === 'status')}>
+                            Lose Status
+                        </button>
+                        <button onClick={() => setKillerVsKiller('both')} className={optionBtn(killerVsKiller === 'both')}>
+                            Both
                         </button>
                     </div>
                 </div>

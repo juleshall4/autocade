@@ -5,6 +5,7 @@ import type { AroundTheClockSettings, ATCOrder } from "./around-the-clock-rules"
 import { VictoryOverlay } from "./victory-overlay";
 import { NextPlayerOverlay } from "./next-player-overlay";
 import { Dartboard } from "./Dartboard";
+import wled from "../services/wled";
 
 interface AroundTheClockGameProps {
     state: AutodartsState | null;
@@ -101,6 +102,17 @@ export function AroundTheClockGame({
         setTurnThrows([]);
         prevThrowsRef.current = [];
     }, [players.length, settings.order]);
+
+    // Play "Game On" sound on game start (with ref guard for StrictMode)
+    const gameOnPlayedRef = useRef(false);
+    useEffect(() => {
+        if (!gameOnPlayedRef.current) {
+            gameOnPlayedRef.current = true;
+            const soundNum = Math.floor(Math.random() * 4); // 0-3
+            const suffix = soundNum === 0 ? '' : soundNum.toString();
+            new Audio(`/sounds/Northern_Terry/phrases/Game_on${suffix}.mp3`).play().catch(() => { });
+        }
+    }, []);
 
     // Get next target index for a player
     const getNextTarget = useCallback((targetsHit: number[]): number | null => {
@@ -235,6 +247,9 @@ export function AroundTheClockGame({
                     newCurrentTarget = nextTarget ?? 25;
 
                     if (hasWon) {
+                        // Play Game Shot sound
+                        new Audio('/sounds/Northern_Terry/phrases/Game_shot.mp3').play().catch(() => { });
+                        wled.atcWin();
                         setWinnerId(currentPlayer.id);
                         setShowVictoryOverlay(true);
                     }
@@ -350,7 +365,7 @@ export function AroundTheClockGame({
                     const pd = playerData.find(d => d.playerId === player.id);
                     const isActive = idx === currentPlayerIndex;
                     return (
-                        <div key={player.id} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all backdrop-blur-md border-2 ${isActive ? 'bg-white/15 text-white scale-110 border-white' : 'bg-white/10 text-zinc-300 border-white/10'}`}>
+                        <div key={player.id} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all backdrop-blur-md border-2 ${isActive ? 'bg-white/15 text-white border-white animate-glow-pulse z-10' : 'bg-white/10 text-zinc-300 border-white/10'}`}>
                             <div className="w-10 h-10 rounded-full bg-zinc-700/50 overflow-hidden shrink-0">
                                 {player.photo ? (
                                     <img src={player.photo} alt={player.name} className="w-full h-full object-cover" />

@@ -88,7 +88,6 @@ export function PlayerConfigContent({
                                     ? 'bg-white/10 border-white/20'
                                     : 'bg-white/5 border-white/10 opacity-60'
                                     }`}
-                                style={{ opacity: 0, animation: `fadeInUp 0.5s ease-out ${0.1 + index * 0.06}s forwards` }}
                             >
                                 {/* Collapsed view */}
                                 <div

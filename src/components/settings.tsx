@@ -44,15 +44,44 @@ interface CallerSettings {
     announceGameStart: boolean;
 }
 
-interface WledSettings {
+interface WledEventPresets {
+    // Default lighting to revert to
+    default: number | null;
+    // General
+    gameOn: number | null;
+    // X01 events
+    x01Checkout: number | null;
+    x01Bust: number | null;
+    x01OneEighty: number | null;
+    // Killer events
+    killerActivation: number | null;
+    killerLifeTaken: number | null;
+    killerElimination: number | null;
+    killerWin: number | null;
+    // Around The Clock events
+    atcTargetHit: number | null;
+    atcWin: number | null;
+}
+
+interface WledEventDurations {
+    gameOn: number;
+    x01Checkout: number;
+    x01Bust: number;
+    x01OneEighty: number;
+    killerActivation: number;
+    killerLifeTaken: number;
+    killerElimination: number;
+    killerWin: number;
+    atcTargetHit: number;
+    atcWin: number;
+}
+
+export interface WledSettings {
     enabled: boolean;
     ip: string;
-    triggers: {
-        onHit: boolean;
-        onCheckout: boolean;
-        onBust: boolean;
-        onGameWin: boolean;
-    };
+    ip2: string;
+    presets: WledEventPresets;
+    durations: WledEventDurations;
 }
 
 type SettingsTab = 'appearance' | 'audio' | 'connection' | 'wled';
@@ -100,26 +129,83 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
     };
 
     // WLED settings state
-    const loadWledSettings = () => {
+    const loadWledSettings = (): WledSettings => {
+        const defaultPresets: WledEventPresets = {
+            default: null,
+            gameOn: null,
+            x01Checkout: null,
+            x01Bust: null,
+            x01OneEighty: null,
+            killerActivation: null,
+            killerLifeTaken: null,
+            killerElimination: null,
+            killerWin: null,
+            atcTargetHit: null,
+            atcWin: null,
+        };
+        const defaultDurations: WledEventDurations = {
+            gameOn: 3,
+            x01Checkout: 5,
+            x01Bust: 2,
+            x01OneEighty: 4,
+            killerActivation: 3,
+            killerLifeTaken: 2,
+            killerElimination: 3,
+            killerWin: 5,
+            atcTargetHit: 1,
+            atcWin: 5,
+        };
+        const defaults: WledSettings = {
+            enabled: false,
+            ip: '',
+            ip2: '',
+            presets: defaultPresets,
+            durations: defaultDurations,
+        };
         try {
             const saved = localStorage.getItem('autocade-wled');
-            if (saved) return JSON.parse(saved);
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                return {
+                    enabled: parsed.enabled ?? defaults.enabled,
+                    ip: parsed.ip ?? defaults.ip,
+                    ip2: parsed.ip2 ?? defaults.ip2,
+                    presets: {
+                        default: parsed.presets?.default ?? defaultPresets.default,
+                        gameOn: parsed.presets?.gameOn ?? defaultPresets.gameOn,
+                        x01Checkout: parsed.presets?.x01Checkout ?? defaultPresets.x01Checkout,
+                        x01Bust: parsed.presets?.x01Bust ?? defaultPresets.x01Bust,
+                        x01OneEighty: parsed.presets?.x01OneEighty ?? defaultPresets.x01OneEighty,
+                        killerActivation: parsed.presets?.killerActivation ?? defaultPresets.killerActivation,
+                        killerLifeTaken: parsed.presets?.killerLifeTaken ?? defaultPresets.killerLifeTaken,
+                        killerElimination: parsed.presets?.killerElimination ?? defaultPresets.killerElimination,
+                        killerWin: parsed.presets?.killerWin ?? defaultPresets.killerWin,
+                        atcTargetHit: parsed.presets?.atcTargetHit ?? defaultPresets.atcTargetHit,
+                        atcWin: parsed.presets?.atcWin ?? defaultPresets.atcWin,
+                    },
+                    durations: {
+                        gameOn: parsed.durations?.gameOn ?? defaultDurations.gameOn,
+                        x01Checkout: parsed.durations?.x01Checkout ?? defaultDurations.x01Checkout,
+                        x01Bust: parsed.durations?.x01Bust ?? defaultDurations.x01Bust,
+                        x01OneEighty: parsed.durations?.x01OneEighty ?? defaultDurations.x01OneEighty,
+                        killerActivation: parsed.durations?.killerActivation ?? defaultDurations.killerActivation,
+                        killerLifeTaken: parsed.durations?.killerLifeTaken ?? defaultDurations.killerLifeTaken,
+                        killerElimination: parsed.durations?.killerElimination ?? defaultDurations.killerElimination,
+                        killerWin: parsed.durations?.killerWin ?? defaultDurations.killerWin,
+                        atcTargetHit: parsed.durations?.atcTargetHit ?? defaultDurations.atcTargetHit,
+                        atcWin: parsed.durations?.atcWin ?? defaultDurations.atcWin,
+                    },
+                };
+            }
         } catch (e) {
             console.error('Failed to load wled settings:', e);
         }
-        return {
-            enabled: false,
-            ip: '',
-            triggers: {
-                onHit: true,
-                onCheckout: true,
-                onBust: true,
-                onGameWin: true
-            }
-        };
+        return defaults;
     };
 
     const [wledSettings, setWledSettings] = useState<WledSettings>(loadWledSettings);
+    const [wledPresetList, setWledPresetList] = useState<{ id: number; name: string }[]>([]);
+    const [presetFetchStatus, setPresetFetchStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
 
     useEffect(() => {
         localStorage.setItem('autocade-wled', JSON.stringify(wledSettings));
@@ -129,14 +215,43 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
         setWledSettings(prev => ({ ...prev, [key]: value }));
     };
 
-    const updateWledTrigger = (key: keyof WledSettings['triggers'], value: boolean) => {
+    const updateWledPreset = (key: keyof WledEventPresets, value: number | null) => {
         setWledSettings(prev => ({
             ...prev,
-            triggers: {
-                ...prev.triggers,
-                [key]: value
-            }
+            presets: { ...prev.presets, [key]: value }
         }));
+    };
+
+    const updateWledDuration = (key: keyof WledEventDurations, value: number) => {
+        setWledSettings(prev => ({
+            ...prev,
+            durations: { ...prev.durations, [key]: value }
+        }));
+    };
+
+    // Fetch presets from WLED device
+    const fetchWledPresets = async () => {
+        if (!wledSettings.ip) return;
+        setPresetFetchStatus('loading');
+        try {
+            const response = await fetch(`http://${wledSettings.ip}/presets.json`);
+            if (!response.ok) throw new Error('Failed to fetch');
+            const data = await response.json();
+            // Parse presets - WLED returns object with numeric keys
+            const presets: { id: number; name: string }[] = [];
+            for (const key in data) {
+                const id = parseInt(key);
+                if (!isNaN(id) && id > 0 && data[key]?.n) {
+                    presets.push({ id, name: data[key].n });
+                }
+            }
+            presets.sort((a, b) => a.id - b.id);
+            setWledPresetList(presets);
+            setPresetFetchStatus('success');
+        } catch (e) {
+            console.error('Failed to fetch WLED presets:', e);
+            setPresetFetchStatus('error');
+        }
     };
 
     useEffect(() => {
@@ -550,7 +665,7 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
                             <>
                                 {/* WLED IP */}
                                 <div className="space-y-2">
-                                    <div className="text-white font-medium text-sm">WLED IP Address</div>
+                                    <div className="text-white font-medium text-sm">WLED IP Address (Channel 1)</div>
                                     <input
                                         type="text"
                                         value={wledSettings.ip}
@@ -560,48 +675,365 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
                                     />
                                 </div>
 
-                                {/* Effect Triggers */}
-                                <div className="space-y-3 pt-3 border-t border-white/10">
-                                    <div className="text-white font-medium text-sm">Effect Triggers</div>
+                                {/* WLED IP 2 */}
+                                <div className="space-y-2">
+                                    <div className="text-white font-medium text-sm">WLED IP Address (Channel 2)</div>
+                                    <input
+                                        type="text"
+                                        value={wledSettings.ip2}
+                                        onChange={(e) => updateWledSetting('ip2', e.target.value)}
+                                        placeholder="192.168.x.x (optional)"
+                                        className="w-full bg-white/10 text-white px-3 py-2 rounded text-sm border border-white/10 focus:border-blue-500/50 outline-none"
+                                    />
+                                </div>
 
-                                    <div className="space-y-2">
-                                        <label className="flex items-center justify-between cursor-pointer">
-                                            <span className="text-zinc-300 text-sm">On Dart Hit</span>
-                                            <input
-                                                type="checkbox"
-                                                checked={wledSettings.triggers.onHit}
-                                                onChange={(e) => updateWledTrigger('onHit', e.target.checked)}
-                                                className="accent-blue-500"
-                                            />
-                                        </label>
-                                        <label className="flex items-center justify-between cursor-pointer">
-                                            <span className="text-zinc-300 text-sm">On Checkout</span>
-                                            <input
-                                                type="checkbox"
-                                                checked={wledSettings.triggers.onCheckout}
-                                                onChange={(e) => updateWledTrigger('onCheckout', e.target.checked)}
-                                                className="accent-blue-500"
-                                            />
-                                        </label>
-                                        <label className="flex items-center justify-between cursor-pointer">
-                                            <span className="text-zinc-300 text-sm">On Bust</span>
-                                            <input
-                                                type="checkbox"
-                                                checked={wledSettings.triggers.onBust}
-                                                onChange={(e) => updateWledTrigger('onBust', e.target.checked)}
-                                                className="accent-blue-500"
-                                            />
-                                        </label>
-                                        <label className="flex items-center justify-between cursor-pointer">
-                                            <span className="text-zinc-300 text-sm">On Game Win</span>
-                                            <input
-                                                type="checkbox"
-                                                checked={wledSettings.triggers.onGameWin}
-                                                onChange={(e) => updateWledTrigger('onGameWin', e.target.checked)}
-                                                className="accent-blue-500"
-                                            />
-                                        </label>
+                                {/* Fetch Presets Button */}
+                                <div className="space-y-2 pt-3 border-t border-white/10">
+                                    <div className="flex items-center justify-between">
+                                        <div className="text-white font-medium text-sm">Presets</div>
+                                        <button
+                                            onClick={fetchWledPresets}
+                                            disabled={presetFetchStatus === 'loading' || !wledSettings.ip}
+                                            className="px-3 py-1 text-xs bg-blue-500 hover:bg-blue-400 disabled:bg-zinc-600 disabled:cursor-not-allowed text-white rounded transition-colors flex items-center gap-1"
+                                        >
+                                            {presetFetchStatus === 'loading' ? (
+                                                <>
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                    Fetching...
+                                                </>
+                                            ) : (
+                                                <>Fetch Presets</>
+                                            )}
+                                        </button>
                                     </div>
+                                    {presetFetchStatus === 'success' && (
+                                        <div className="text-xs text-green-400">✓ Found {wledPresetList.length} presets</div>
+                                    )}
+                                    {presetFetchStatus === 'error' && (
+                                        <div className="text-xs text-red-400">Failed to fetch presets. Check IP address.</div>
+                                    )}
+                                </div>
+
+                                {/* Default Lighting Preset */}
+                                <div className="space-y-2 pt-3 border-t border-white/10">
+                                    <div className="text-white font-medium text-sm">Default Lighting</div>
+                                    <div className="text-zinc-500 text-xs mb-2">Lights revert to this after events</div>
+                                    <select
+                                        value={wledSettings.presets.default ?? ''}
+                                        onChange={(e) => updateWledPreset('default', e.target.value ? parseInt(e.target.value) : null)}
+                                        className="w-full bg-white/10 text-white px-3 py-2 rounded text-sm border border-white/10 focus:border-blue-500/50 outline-none appearance-none cursor-pointer"
+                                    >
+                                        <option value="" className="bg-zinc-900">None (stays on event)</option>
+                                        {wledPresetList.map(p => (
+                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                        ))}
+                                    </select>
+                                </div>
+
+                                {/* Per-Game Preset Selectors */}
+                                <div className="space-y-2 pt-3 border-t border-white/10">
+                                    <div className="text-white font-medium text-sm mb-3">Game Event Presets</div>
+
+                                    {/* Game On */}
+                                    <div className="bg-white/5 rounded-lg border border-white/10 p-3 space-y-1">
+                                        <div className="flex items-center justify-between gap-2">
+                                            <span className="text-zinc-200 font-medium text-sm">Game On</span>
+                                            <select
+                                                value={wledSettings.presets.gameOn ?? ''}
+                                                onChange={(e) => updateWledPreset('gameOn', e.target.value ? parseInt(e.target.value) : null)}
+                                                className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                            >
+                                                <option value="" className="bg-zinc-900">None</option>
+                                                {wledPresetList.map(p => (
+                                                    <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="range"
+                                                min="1"
+                                                max="10"
+                                                value={wledSettings.durations.gameOn}
+                                                onChange={(e) => updateWledDuration('gameOn', parseInt(e.target.value))}
+                                                className="flex-1 accent-blue-500"
+                                            />
+                                            <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.gameOn}s</span>
+                                        </div>
+                                    </div>
+
+                                    {/* X01 Accordion */}
+                                    <details className="group bg-white/5 rounded-lg border border-white/10">
+                                        <summary className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/5">
+                                            <span className="text-zinc-200 font-medium text-sm">X01</span>
+                                            <span className="text-zinc-500 text-xs group-open:rotate-180 transition-transform">▼</span>
+                                        </summary>
+                                        <div className="p-3 pt-0 space-y-4 border-t border-white/10">
+                                            {/* Checkout */}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-zinc-300 text-sm">Checkout</span>
+                                                    <select
+                                                        value={wledSettings.presets.x01Checkout ?? ''}
+                                                        onChange={(e) => updateWledPreset('x01Checkout', e.target.value ? parseInt(e.target.value) : null)}
+                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                                    >
+                                                        <option value="" className="bg-zinc-900">None</option>
+                                                        {wledPresetList.map(p => (
+                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="10"
+                                                        value={wledSettings.durations.x01Checkout}
+                                                        onChange={(e) => updateWledDuration('x01Checkout', parseInt(e.target.value))}
+                                                        className="flex-1 accent-blue-500"
+                                                    />
+                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.x01Checkout}s</span>
+                                                </div>
+                                            </div>
+                                            {/* Bust */}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-zinc-300 text-sm">Bust</span>
+                                                    <select
+                                                        value={wledSettings.presets.x01Bust ?? ''}
+                                                        onChange={(e) => updateWledPreset('x01Bust', e.target.value ? parseInt(e.target.value) : null)}
+                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                                    >
+                                                        <option value="" className="bg-zinc-900">None</option>
+                                                        {wledPresetList.map(p => (
+                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="10"
+                                                        value={wledSettings.durations.x01Bust}
+                                                        onChange={(e) => updateWledDuration('x01Bust', parseInt(e.target.value))}
+                                                        className="flex-1 accent-blue-500"
+                                                    />
+                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.x01Bust}s</span>
+                                                </div>
+                                            </div>
+                                            {/* 180 */}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-zinc-300 text-sm">180</span>
+                                                    <select
+                                                        value={wledSettings.presets.x01OneEighty ?? ''}
+                                                        onChange={(e) => updateWledPreset('x01OneEighty', e.target.value ? parseInt(e.target.value) : null)}
+                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                                    >
+                                                        <option value="" className="bg-zinc-900">None</option>
+                                                        {wledPresetList.map(p => (
+                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="10"
+                                                        value={wledSettings.durations.x01OneEighty}
+                                                        onChange={(e) => updateWledDuration('x01OneEighty', parseInt(e.target.value))}
+                                                        className="flex-1 accent-blue-500"
+                                                    />
+                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.x01OneEighty}s</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </details>
+
+                                    {/* Around The Clock Accordion */}
+                                    <details className="group bg-white/5 rounded-lg border border-white/10">
+                                        <summary className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/5">
+                                            <span className="text-zinc-200 font-medium text-sm">Around The Clock</span>
+                                            <span className="text-zinc-500 text-xs group-open:rotate-180 transition-transform">▼</span>
+                                        </summary>
+                                        <div className="p-3 pt-0 space-y-4 border-t border-white/10">
+                                            {/* Target Hit */}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-zinc-300 text-sm">Target Hit</span>
+                                                    <select
+                                                        value={wledSettings.presets.atcTargetHit ?? ''}
+                                                        onChange={(e) => updateWledPreset('atcTargetHit', e.target.value ? parseInt(e.target.value) : null)}
+                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                                    >
+                                                        <option value="" className="bg-zinc-900">None</option>
+                                                        {wledPresetList.map(p => (
+                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="10"
+                                                        value={wledSettings.durations.atcTargetHit}
+                                                        onChange={(e) => updateWledDuration('atcTargetHit', parseInt(e.target.value))}
+                                                        className="flex-1 accent-blue-500"
+                                                    />
+                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.atcTargetHit}s</span>
+                                                </div>
+                                            </div>
+                                            {/* Victory */}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-zinc-300 text-sm">Victory</span>
+                                                    <select
+                                                        value={wledSettings.presets.atcWin ?? ''}
+                                                        onChange={(e) => updateWledPreset('atcWin', e.target.value ? parseInt(e.target.value) : null)}
+                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                                    >
+                                                        <option value="" className="bg-zinc-900">None</option>
+                                                        {wledPresetList.map(p => (
+                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="10"
+                                                        value={wledSettings.durations.atcWin}
+                                                        onChange={(e) => updateWledDuration('atcWin', parseInt(e.target.value))}
+                                                        className="flex-1 accent-blue-500"
+                                                    />
+                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.atcWin}s</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </details>
+
+                                    {/* Killer Accordion */}
+                                    <details className="group bg-white/5 rounded-lg border border-white/10">
+                                        <summary className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/5">
+                                            <span className="text-zinc-200 font-medium text-sm">Killer</span>
+                                            <span className="text-zinc-500 text-xs group-open:rotate-180 transition-transform">▼</span>
+                                        </summary>
+                                        <div className="p-3 pt-0 space-y-4 border-t border-white/10">
+                                            {/* Became Killer */}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-zinc-300 text-sm">Became Killer</span>
+                                                    <select
+                                                        value={wledSettings.presets.killerActivation ?? ''}
+                                                        onChange={(e) => updateWledPreset('killerActivation', e.target.value ? parseInt(e.target.value) : null)}
+                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                                    >
+                                                        <option value="" className="bg-zinc-900">None</option>
+                                                        {wledPresetList.map(p => (
+                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="10"
+                                                        value={wledSettings.durations.killerActivation}
+                                                        onChange={(e) => updateWledDuration('killerActivation', parseInt(e.target.value))}
+                                                        className="flex-1 accent-blue-500"
+                                                    />
+                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.killerActivation}s</span>
+                                                </div>
+                                            </div>
+                                            {/* Life Taken */}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-zinc-300 text-sm">Life Taken</span>
+                                                    <select
+                                                        value={wledSettings.presets.killerLifeTaken ?? ''}
+                                                        onChange={(e) => updateWledPreset('killerLifeTaken', e.target.value ? parseInt(e.target.value) : null)}
+                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                                    >
+                                                        <option value="" className="bg-zinc-900">None</option>
+                                                        {wledPresetList.map(p => (
+                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="10"
+                                                        value={wledSettings.durations.killerLifeTaken}
+                                                        onChange={(e) => updateWledDuration('killerLifeTaken', parseInt(e.target.value))}
+                                                        className="flex-1 accent-blue-500"
+                                                    />
+                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.killerLifeTaken}s</span>
+                                                </div>
+                                            </div>
+                                            {/* Elimination */}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-zinc-300 text-sm">Elimination</span>
+                                                    <select
+                                                        value={wledSettings.presets.killerElimination ?? ''}
+                                                        onChange={(e) => updateWledPreset('killerElimination', e.target.value ? parseInt(e.target.value) : null)}
+                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                                    >
+                                                        <option value="" className="bg-zinc-900">None</option>
+                                                        {wledPresetList.map(p => (
+                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="10"
+                                                        value={wledSettings.durations.killerElimination}
+                                                        onChange={(e) => updateWledDuration('killerElimination', parseInt(e.target.value))}
+                                                        className="flex-1 accent-blue-500"
+                                                    />
+                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.killerElimination}s</span>
+                                                </div>
+                                            </div>
+                                            {/* Victory */}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-zinc-300 text-sm">Victory</span>
+                                                    <select
+                                                        value={wledSettings.presets.killerWin ?? ''}
+                                                        onChange={(e) => updateWledPreset('killerWin', e.target.value ? parseInt(e.target.value) : null)}
+                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                                    >
+                                                        <option value="" className="bg-zinc-900">None</option>
+                                                        {wledPresetList.map(p => (
+                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="10"
+                                                        value={wledSettings.durations.killerWin}
+                                                        onChange={(e) => updateWledDuration('killerWin', parseInt(e.target.value))}
+                                                        className="flex-1 accent-blue-500"
+                                                    />
+                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.killerWin}s</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </details>
                                 </div>
                             </>
                         )}

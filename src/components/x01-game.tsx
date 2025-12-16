@@ -7,6 +7,7 @@ import { VictoryOverlay } from "./victory-overlay";
 import { NextPlayerOverlay } from "./next-player-overlay";
 import { Dartboard } from "./Dartboard";
 import { useCaller } from "../hooks/use-caller";
+import wled from "../services/wled";
 
 interface X01GameProps {
     state: AutodartsState | null;
@@ -85,11 +86,14 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
     const [currentSet, setCurrentSet] = useState(1);
     const [matchWinnerId, setMatchWinnerId] = useState<string | null>(null);
 
+    const [setStarterIndex, setSetStarterIndex] = useState(0); // Track who starts the current set
+
     // Leg-level tracking
     const [legData, setLegData] = useState<PlayerLegData[]>(() =>
         players.map(p => createLegData(p.id, baseScore, inMode === 'single'))
     );
     const [currentPlayerIndex, setCurrentPlayerIndex] = useState(0);
+    const [legStarterIndex, setLegStarterIndex] = useState(0); // Track who starts the current leg
     const [turnScore, setTurnScore] = useState(0);
     const [turnThrows, setTurnThrows] = useState<string[]>([]);
     const [isBust, setIsBust] = useState(false);
@@ -119,7 +123,7 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
         onLegStart();
 
         setLegData(players.map(p => createLegData(p.id, baseScore, inMode === 'single')));
-        setCurrentPlayerIndex(0);
+        setCurrentPlayerIndex(legStarterIndex); // Start with the determined starter
         setTurnScore(0);
         setTurnThrows([]);
         setIsBust(false);
@@ -128,7 +132,16 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
         setCountdown(null);
         prevThrowsRef.current = [];
         scoreAtTurnStartRef.current = baseScore;
-    }, [players, baseScore, inMode, onLegStart]);
+    }, [players, baseScore, inMode, onLegStart, legStarterIndex]);
+
+    // Play "Game On" sound on game start (with ref guard for StrictMode)
+    const gameOnPlayedRef = useRef(false);
+    useEffect(() => {
+        if (!gameOnPlayedRef.current) {
+            gameOnPlayedRef.current = true;
+            caller.callGameOn();
+        }
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Countdown timer between legs
     useEffect(() => {
@@ -179,6 +192,9 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
             setMatchWinnerId(winnerId);
             setShowVictoryOverlay(true);
         } else if (matchMode === 'legs') {
+            // Rotate starter for next leg
+            setLegStarterIndex(prev => (prev + 1) % players.length);
+
             // Check if legs won
             if (newLegsWon >= legsToWin) {
                 setMatchWinnerId(winnerId);
@@ -197,20 +213,30 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
                     legsWon: 0, // Reset legs for new set
                 })));
                 const newSetsWon = (winnerMatchData?.setsWon || 0) + 1;
+
                 if (newSetsWon >= setsToWin) {
                     setMatchWinnerId(winnerId);
                     setShowVictoryOverlay(true);
                 } else {
+                    // New Set
                     setCurrentSet(prev => prev + 1);
                     setCurrentLeg(1);
                     setShowLegSummary(true);
+
+                    // Rotate for new SET
+                    const nextSetStarter = (setStarterIndex + 1) % players.length;
+                    setSetStarterIndex(nextSetStarter);
+                    setLegStarterIndex(nextSetStarter);
                 }
             } else {
+                // Leg won, set continues
                 setCurrentLeg(prev => prev + 1);
                 setShowLegSummary(true);
+                // Rotate for next LEG
+                setLegStarterIndex(prev => (prev + 1) % players.length);
             }
         }
-    }, [legData, matchData, matchMode, legsToWin, setsToWin]);
+    }, [legData, matchData, matchMode, legsToWin, setsToWin, setStarterIndex, players.length]);
 
     // Update score at turn start ref and announce checkout if in range
     useEffect(() => {
@@ -384,11 +410,13 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
                                 : ld
                         ));
                         caller.callGameShot();
+                        wled.checkout();
                         handleLegWin(currentPlayer.id);
                     }
                 } else if (projectedRemaining < 0 || (outMode === 'double' && projectedRemaining === 1)) {
                     // Bust
                     setIsBust(true);
+                    wled.bust();
                     setTurnScore(accumulatedScore);
                     setTurnThrows(prev => [...prev, t.segment.name].slice(0, 3));
                     // Only call "no score" if busts announcement is enabled
@@ -586,40 +614,23 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
         );
     }
 
+    // Partial scaling for player list (scales less than the board)
+    const playerListScale = 1 + ((gameViewScale / 100) - 1) * 0.35;
+
     // Main game view
     return (
         <div className="h-full w-full flex flex-col items-center justify-center p-8 gap-12">
-            {/* Match score header */}
-            {matchMode !== 'off' && (
-                <div className="flex items-center gap-6 mb-2">
-                    {players.map(player => {
-                        const md = matchData.find(m => m.playerId === player.id);
-                        return (
-                            <div key={player.id} className="text-center">
-                                <div className="text-zinc-500 text-xs uppercase">{player.name}</div>
-                                <div className="text-2xl font-bold text-white">
-                                    {matchMode === 'sets' ? md?.setsWon : md?.legsWon}
-                                </div>
-                                {matchMode === 'sets' && (
-                                    <div className="text-xs text-zinc-600">Legs: {md?.legsWon}</div>
-                                )}
-                            </div>
-                        );
-                    })}
-                    <div className="text-zinc-600 text-sm">
-                        {matchMode === 'sets' && `Set ${currentSet}`}
-                        {matchMode === 'legs' && `Leg ${currentLeg}`}
-                    </div>
-                </div>
-            )}
-
             {/* Player leg scores */}
-            <div className="flex items-center gap-6">
-                {players.map((player, idx) => {
+            <div className="flex items-center gap-6" style={{ zoom: playerListScale }}>
+                {/* Rotate visual order based on leg starter */}
+                {[...players.slice(legStarterIndex), ...players.slice(0, legStarterIndex)].map((player) => {
                     const ld = legData.find(d => d.playerId === player.id);
-                    const isActive = idx === currentPlayerIndex;
+                    const md = matchData.find(m => m.playerId === player.id);
+                    // Active check must compare IDs since list is rotated
+                    const isActive = player.id === players[currentPlayerIndex]?.id;
                     return (
-                        <div key={player.id} className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all backdrop-blur-md border-2 ${isActive ? 'bg-white/15 text-white scale-110 border-white' : 'bg-white/10 text-zinc-300 border-white/10'}`}>
+                        <div key={player.id} className={`flex items-center gap-4 px-4 py-3 rounded-lg transition-all backdrop-blur-md border-2 ${isActive ? 'bg-white/15 text-white border-white animate-glow-pulse z-10' : 'bg-white/10 text-zinc-300 border-white/10'}`}>
+                            {/* Avatar */}
                             <div className="w-10 h-10 rounded-full bg-zinc-700/50 overflow-hidden shrink-0">
                                 {player.photo ? (
                                     <img src={player.photo} alt={player.name} className="w-full h-full object-cover" />
@@ -629,12 +640,32 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
                                     </div>
                                 )}
                             </div>
+
+                            {/* Info */}
                             <div>
-                                <div className="text-xs uppercase tracking-wider opacity-75">
+                                <div className="text-xs uppercase tracking-wider opacity-75 mb-0.5">
                                     {player.name}
                                     {!ld?.hasStarted && inMode === 'double' && <span className="ml-1 text-yellow-400">(waiting)</span>}
                                 </div>
-                                <div className="text-2xl font-bold tabular-nums">{ld?.remaining ?? baseScore}</div>
+                                <div className="flex items-center gap-3">
+                                    <div className="text-2xl font-bold tabular-nums leading-none">{ld?.remaining ?? baseScore}</div>
+
+                                    {/* Match Stats */}
+                                    {matchMode !== 'off' && (
+                                        <div className="flex items-center gap-1.5 ml-1">
+                                            {/* Sets (Yellow) */}
+                                            {matchMode === 'sets' && (
+                                                <div className="w-6 h-6 flex items-center justify-center rounded bg-yellow-500/20 border border-yellow-500/40 text-yellow-400 text-sm font-bold shadow-[0_0_10px_rgba(234,179,8,0.2)]">
+                                                    {md?.setsWon ?? 0}
+                                                </div>
+                                            )}
+                                            {/* Legs (Green) */}
+                                            <div className="w-6 h-6 flex items-center justify-center rounded bg-green-500/20 border border-green-500/40 text-green-400 text-sm font-bold shadow-[0_0_10px_rgba(34,197,94,0.2)]">
+                                                {md?.legsWon ?? 0}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     );

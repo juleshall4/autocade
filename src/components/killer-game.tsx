@@ -7,6 +7,7 @@ import { Skull, Heart, Sword } from 'lucide-react';
 import { Dartboard } from './Dartboard';
 import { VictoryOverlay } from './victory-overlay';
 import { NextPlayerOverlay } from './next-player-overlay';
+import wled from '../services/wled';
 
 interface KillerGameProps {
     state: AutodartsState | null;
@@ -14,9 +15,10 @@ interface KillerGameProps {
     players: Player[];
     onPlayAgain: () => void;
     gameViewScale?: number;
+    themeGlow?: string;
 }
 
-export function KillerGame({ state, settings, players, onPlayAgain, gameViewScale = 100 }: KillerGameProps) {
+export function KillerGame({ state, settings, players, onPlayAgain, gameViewScale = 100, themeGlow }: KillerGameProps) {
     const [gameState, setGameState] = useState<KillerGameState>({
         players: [],
         turnIndex: 0,
@@ -29,6 +31,7 @@ export function KillerGame({ state, settings, players, onPlayAgain, gameViewScal
 
     const [initialized, setInitialized] = useState(false);
     const lastThrowRef = useRef<number>(0);
+    const soundPlayedForThrowRef = useRef<number>(-1); // Track which throw count we played sound for
     const lastTurnIndexRef = useRef<number>(0);
 
     // Overlays
@@ -38,17 +41,14 @@ export function KillerGame({ state, settings, players, onPlayAgain, gameViewScal
     // Initialize
     useEffect(() => {
         if (!initialized && players.length > 0) {
-            const initialPlayers = assignKillerNumbers(players);
-            initialPlayers.forEach(p => p.lives = settings.startingLives);
-
-            const initialState = {
-                players: initialPlayers,
+            const assigned = assignKillerNumbers(players, settings);
+            setGameState(prev => ({
+                ...prev,
+                players: assigned,
                 turnIndex: 0,
                 winner: null,
-                log: [],
-            };
-
-            setGameState(initialState);
+                log: []
+            }));
             setHistory([]); // Reset history
             setInitialized(true);
             lastTurnIndexRef.current = 0;
@@ -56,6 +56,17 @@ export function KillerGame({ state, settings, players, onPlayAgain, gameViewScal
             lastThrowRef.current = state?.throws?.length || 0;
         }
     }, [players, settings, initialized, state?.throws?.length]);
+
+    // Play "Game On" sound on game start (with ref guard for StrictMode)
+    const gameOnPlayedRef = useRef(false);
+    useEffect(() => {
+        if (!gameOnPlayedRef.current && initialized) {
+            gameOnPlayedRef.current = true;
+            const soundNum = Math.floor(Math.random() * 4); // 0-3
+            const suffix = soundNum === 0 ? '' : soundNum.toString();
+            new Audio(`/sounds/Northern_Terry/phrases/Game_on${suffix}.mp3`).play().catch(() => { });
+        }
+    }, [initialized]);
 
     // Unified Game Update Logic (handles both Live and Manual events)
     const handleGameUpdate = useCallback((incomingState: AutodartsState) => {
@@ -70,6 +81,7 @@ export function KillerGame({ state, settings, players, onPlayAgain, gameViewScal
                 const aliveCount = prev.players.filter(p => p.lives > 0).length;
                 if (aliveCount <= 1 && prev.players.length > 1) return prev;
 
+                // Skip eliminated players (lives <= 0)
                 while (prev.players[nextIndex].lives <= 0) {
                     nextIndex = (nextIndex + 1) % prev.players.length;
                 }
@@ -98,15 +110,42 @@ export function KillerGame({ state, settings, players, onPlayAgain, gameViewScal
         if (currentThrowCount > lastThrowRef.current) {
             const newDart = currentThrows[currentThrowCount - 1];
 
+            let eventsToProcess: string[] = [];
+
             setGameState(prev => {
                 if (prev.winner) return prev;
 
                 // Save current state to history before update
                 setHistory(h => [...h, prev]);
 
-                const { newState } = processKillerThrow(newDart.segment, prev, settings);
+                const { newState, events } = processKillerThrow(newDart.segment, prev, settings);
+                eventsToProcess = events;
+
                 return newState;
             });
+
+            // Play sounds outside of setState to avoid React StrictMode double-firing
+            if (soundPlayedForThrowRef.current !== currentThrowCount) {
+                soundPlayedForThrowRef.current = currentThrowCount;
+                if (eventsToProcess.some(e => e.includes('Eliminated'))) {
+                    const soundNum = Math.floor(Math.random() * 7); // 0-6
+                    const suffix = soundNum === 0 ? '' : soundNum.toString();
+                    new Audio(`/sounds/Northern_Terry/killer/dead${suffix}.mp3`).play().catch(() => { });
+                    wled.elimination();
+                } else if (eventsToProcess.some(e => e.includes('Became KILLER'))) {
+                    const soundNum = Math.floor(Math.random() * 5); // 0-4
+                    const suffixes = ['', '1', '2', '3', '5'];
+                    new Audio(`/sounds/Northern_Terry/killer/killer${suffixes[soundNum]}.mp3`).play().catch(() => { });
+                    wled.killerActivation();
+                } else if (eventsToProcess.some(e => e.includes('Hit') && e.includes('-'))) {
+                    // Life taken but not eliminated
+                    wled.killerLifeTaken();
+                }
+                // Check for winner
+                if (eventsToProcess.some(e => e.includes('wins'))) {
+                    wled.killerWin();
+                }
+            }
 
             lastThrowRef.current = currentThrowCount;
         }
@@ -142,8 +181,6 @@ export function KillerGame({ state, settings, players, onPlayAgain, gameViewScal
     if (!initialized) return <div>Initializing...</div>;
 
     const currentPlayer = gameState.players[gameState.turnIndex];
-    // Use state.throws directly from props as App.tsx handles the state source of truth
-    const turnThrows = state?.throws || [];
 
     // Calculate partial scale for player list (dampened effect)
     // e.g. if scale is 1.5, player scale is 1 + (0.5 * 0.35) = 1.175
@@ -177,10 +214,43 @@ export function KillerGame({ state, settings, players, onPlayAgain, gameViewScal
     }
 
     return (
-        <div className="h-full w-full flex flex-col items-center justify-center p-8 gap-6 relative">
+        <div className="h-full w-full flex items-center justify-center p-8 gap-20 relative">
 
-            {/* Player List (Horizontal) */}
-            <div className="flex items-center gap-4 flex-wrap justify-center" style={{ zoom: playerLimitScale }}>
+            {/* Left: Main Game Area (Board) */}
+            <div className="flex flex-col items-center gap-6" style={{ zoom: gameViewScale / 100 }}>
+                {/* Dartboard */}
+                <Dartboard
+                    size={300}
+                    glowColor={themeGlow}
+                    highlightSegments={(() => {
+                        if (!currentPlayer || currentPlayer.lives <= 0) return [];
+
+                        // Map zone type to prefix
+                        const zoneToPrefix = (zone: string) => {
+                            if (zone === 'full') return 'full';
+                            if (zone === 'double') return 'D';
+                            if (zone === 'triple') return 'T';
+                            if (zone === 'outer-single') return 'OS';
+                            return 'S'; // single
+                        };
+
+                        const prefix = zoneToPrefix(settings.mode);
+
+                        if (currentPlayer.isKiller) {
+                            // Highlight all alive opponents' numbers
+                            return gameState.players
+                                .filter(p => p.id !== currentPlayer.id && p.lives > 0)
+                                .map(p => `${prefix}${p.number}`);
+                        } else {
+                            // Highlight own number
+                            return [`${prefix}${currentPlayer.number}`];
+                        }
+                    })()}
+                />
+            </div>
+
+            {/* Right: Player List (Vertical Stack) */}
+            <div className="flex flex-col gap-3 min-w-[300px]" style={{ zoom: playerLimitScale }}>
                 {gameState.players.map((p, idx) => {
                     const realPlayer = players.find(rp => rp.id === p.id);
                     const isActive = idx === gameState.turnIndex;
@@ -189,95 +259,64 @@ export function KillerGame({ state, settings, players, onPlayAgain, gameViewScal
                     return (
                         <div
                             key={p.id}
-                            className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-all backdrop-blur-md border-2
-                                ${isActive ? 'bg-white/15 text-white scale-110 border-white z-10' :
-                                    isDead ? 'bg-red-900/10 border-red-900/20 opacity-50 grayscale' :
-                                        'bg-white/10 text-zinc-300 border-white/10'}`}
+                            className={`flex items-center gap-4 px-4 py-3 rounded-lg transition-all backdrop-blur-md border-2
+                                ${isActive ? 'bg-white/15 text-white border-white animate-glow-pulse z-10' :
+                                    isDead ? 'bg-red-900/10 border-red-900/20 opacity-40 grayscale' :
+                                        p.isKiller ? 'bg-white/5 text-white border-red-500' :
+                                            'bg-white/5 text-zinc-400 border-white/5'}`}
                         >
-                            <div className="w-10 h-10 rounded-full bg-zinc-700/50 overflow-hidden shrink-0 relative">
-                                {realPlayer?.photo ? (
-                                    <img src={realPlayer.photo} alt={p.name} className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-lg font-bold opacity-50">
-                                        {p.name.charAt(0).toUpperCase()}
+                            {/* Left: Photo and Info */}
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-full bg-zinc-700/50 overflow-hidden shrink-0 relative">
+                                    {realPlayer?.photo ? (
+                                        <img src={realPlayer.photo} alt={p.name} className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-lg font-bold opacity-50">
+                                            {p.name.charAt(0).toUpperCase()}
+                                        </div>
+                                    )}
+                                    {isDead && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Skull size={24} className="text-white" /></div>}
+                                </div>
+                                <div className="flex flex-col items-start gap-1">
+                                    <div className="text-base font-bold uppercase tracking-wider opacity-90 flex items-center gap-2">
+                                        {p.name}
+                                        {p.isKiller && <Sword size={16} className="text-red-400" />}
                                     </div>
-                                )}
-                                {isDead && <div className="absolute inset-0 bg-black/60 flex items-center justify-center"><Skull size={20} className="text-zinc-400" /></div>}
+
+                                    <div className="flex items-center gap-1">
+                                        {Array.from({ length: settings.startingLives }).map((_, heartIdx) => (
+                                            <Heart
+                                                key={heartIdx}
+                                                size={16}
+                                                className={heartIdx < p.lives
+                                                    ? "fill-red-600 text-red-600 border-none"
+                                                    : "fill-transparent text-white"
+                                                }
+                                            />
+                                        ))}
+                                    </div>
+
+                                    <div className="flex items-center gap-1 mt-1">
+                                        {[0, 1, 2].map(idx => (
+                                            <div
+                                                key={idx}
+                                                className={`h-1.5 w-6 rounded-full transition-all ${idx < (p.charge || 0)
+                                                    ? 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.5)]'
+                                                    : 'bg-white/10'
+                                                    }`}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
-                            <div>
-                                <div className="text-xs uppercase tracking-wider opacity-75 flex items-center gap-2">
-                                    {p.name}
-                                    {p.isKiller && <Sword size={12} className="text-red-400" />}
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="text-2xl font-bold tabular-nums flex items-center gap-1">
-                                        <Heart size={16} className={isActive ? "fill-red-500 text-red-500" : "text-zinc-500"} />
-                                        {p.lives}
-                                    </div>
-                                    <div className="text-lg font-mono opacity-50">#{p.number}</div>
-                                </div>
+
+                            {/* Right: Big Target Number */}
+                            <div className="text-3xl font-bold font-mono opacity-50 pl-4 border-l border-white/10 ml-auto">
+                                #{p.number}
                             </div>
                         </div>
                     );
                 })}
-            </div>
-
-            {/* Main Game Area */}
-            <div style={{ zoom: gameViewScale / 100 }}>
-                <div className="flex items-center justify-center gap-12">
-                    {/* Dartboard */}
-                    <Dartboard
-                        size={300}
-                        highlightSegment={currentPlayer ? `S${currentPlayer.number}` : undefined}
-                    // Note: S{number} highlights standard single.
-                    // Ideally we highlight base on "Charging" logic (e.g. Double if activation is Double)
-                    // But simple highlight is better for now.
-                    />
-
-                    {/* Info Panel */}
-                    <div className="flex flex-col items-center gap-4">
-                        {/* Big Status Text */}
-                        <div className="text-center">
-                            {currentPlayer?.isKiller ? (
-                                <div className="text-5xl font-black text-red-500 tracking-wider flex items-center gap-2 animate-pulse">
-                                    <Sword size={48} /> KILLER
-                                </div>
-                            ) : (
-                                <div className="flex flex-col items-center">
-                                    <div className="text-zinc-400 uppercase text-sm tracking-widest mb-1">Target</div>
-                                    <div className="text-7xl font-bold text-white">#{currentPlayer?.number}</div>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Throw Boxes */}
-                        <div className="flex items-center justify-center gap-4 mt-4">
-                            {[0, 1, 2].map(idx => {
-                                const throwName = turnThrows[idx]?.segment?.name;
-                                return (
-                                    <div
-                                        key={idx}
-                                        className={`w-20 h-20 rounded-xl border-2 flex items-center justify-center transition-all backdrop-blur-md ${throwName
-                                            ? 'bg-white/15 border-white/30 text-white'
-                                            : 'bg-white/5 border-white/10 text-zinc-600'
-                                            }`}
-                                    >
-                                        <span className="text-2xl font-bold">
-                                            {throwName || ''}
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-
-                        {/* Instruction / Context */}
-                        <div className="text-zinc-500 text-sm font-medium mt-2">
-                            {currentPlayer?.isKiller
-                                ? "Hit opponents' numbers to eliminate them!"
-                                : `Hit your number to gain lives & activate Killer!`}
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     );

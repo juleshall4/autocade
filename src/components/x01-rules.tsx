@@ -54,12 +54,12 @@ export function X01Rules({ onSettingsChange, initialSettings, accentClass = 'bg-
         <div className="flex flex-col items-center justify-center p-8 bg-white/5 border border-white/10 rounded-xl">
             {/* Rules List */}
             <div className="w-full max-w-sm space-y-6">
-                <h1 className="text-3xl font-bold text-white flex items-center gap-3" style={{ opacity: 0, animation: 'fadeIn 0.5s ease-out forwards' }}>
-                    🎯 X01
+                <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+                    X01
                 </h1>
 
                 {/* Starting Score */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.1s forwards' }}>
+                <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Starting Score
                     </label>
@@ -77,7 +77,7 @@ export function X01Rules({ onSettingsChange, initialSettings, accentClass = 'bg-
                 </div>
 
                 {/* In Mode */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.15s forwards' }}>
+                <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         In Mode
                     </label>
@@ -92,7 +92,7 @@ export function X01Rules({ onSettingsChange, initialSettings, accentClass = 'bg-
                 </div>
 
                 {/* Out Mode */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.2s forwards' }}>
+                <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Out Mode
                     </label>
@@ -107,7 +107,7 @@ export function X01Rules({ onSettingsChange, initialSettings, accentClass = 'bg-
                 </div>
 
                 {/* Match Mode */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.25s forwards' }}>
+                <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Match Mode
                     </label>

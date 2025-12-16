@@ -49,12 +49,12 @@ export function AroundTheClockRules({ onSettingsChange, initialSettings, accentC
         <div className="flex flex-col items-center justify-center p-8 bg-white/5 border border-white/10 rounded-xl">
             {/* Rules List */}
             <div className="w-full max-w-lg space-y-6">
-                <h1 className="text-3xl font-bold text-white flex items-center gap-3" style={{ opacity: 0, animation: 'fadeIn 0.5s ease-out forwards' }}>
-                    ⏱️ Around the Clock
+                <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+                    Around the Clock
                 </h1>
 
                 {/* Mode */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.1s forwards' }}>
+                <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Mode
                     </label>
@@ -78,7 +78,7 @@ export function AroundTheClockRules({ onSettingsChange, initialSettings, accentC
                 </div>
 
                 {/* Order */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.15s forwards' }}>
+                <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Order
                     </label>
@@ -96,7 +96,7 @@ export function AroundTheClockRules({ onSettingsChange, initialSettings, accentC
                 </div>
 
                 {/* Multiplier */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.2s forwards' }}>
+                <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Multiplier
                     </label>
@@ -111,7 +111,7 @@ export function AroundTheClockRules({ onSettingsChange, initialSettings, accentC
                 </div>
 
                 {/* Hits Required */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.25s forwards' }}>
+                <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Hits Required
                     </label>
@@ -129,7 +129,7 @@ export function AroundTheClockRules({ onSettingsChange, initialSettings, accentC
                 </div>
 
                 {/* Finish Settings */}
-                <div style={{ opacity: 0, animation: 'fadeInUp 0.5s ease-out 0.3s forwards' }}>
+                <div>
                     <label className="text-zinc-500 uppercase tracking-widest text-xs block mb-2">
                         Bull Finish
                     </label>
