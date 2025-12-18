@@ -9,6 +9,18 @@ import { AroundTheClockRules, type AroundTheClockSettings } from './components/a
 import { AroundTheClockGame } from './components/around-the-clock-game';
 import { KillerRules, type KillerSettings } from './components/killer-rules';
 import { KillerGame } from './components/killer-game';
+import { DartRouletteGame } from './components/dart-roulette-game';
+import { DartRouletteRules, type DartRouletteSettings } from './components/dart-roulette-rules';
+import { type TournamentSettings } from './components/tournament-rules';
+import { TournamentStandings } from './components/tournament-standings';
+import { TournamentIntro } from './components/tournament-intro';
+import { MatchIntro } from './components/match-intro';
+import {
+  type RoundRobinTournament,
+  initializeTournament,
+  recordMatchResult,
+  getSortedStandings,
+} from './logic/round-robin';
 import { PlayerConfigContent } from './components/player-config';
 import { PlayerList } from './components/player-list';
 import { SettingsContent, type AppearanceSettings, THEMES } from './components/settings';
@@ -18,9 +30,8 @@ import { getStatusEmoji } from './types/autodarts';
 import { Wifi, WifiOff, RotateCcw, Settings as SettingsIcon, Maximize, Minimize } from 'lucide-react';
 import { ManualEntryDrawer } from './components/manual-entry-drawer';
 import autodartsLogo from './assets/autodartgrey.png';
-import wled from './services/wled';
 
-type AppView = 'game' | 'game-selector' | 'x01-rules' | 'x01-game' | 'atc-rules' | 'atc-game' | 'killer-rules' | 'killer-game';
+type AppView = 'game' | 'game-selector' | 'x01-rules' | 'x01-game' | 'atc-rules' | 'atc-game' | 'killer-rules' | 'killer-game' | 'roulette-rules' | 'roulette-game';
 
 function App() {
   const { isConnected, latestState, simulateState } = useAutodarts();
@@ -70,8 +81,28 @@ function App() {
     killerVsKiller: 'life',
     startingOrder: 'listed',
   });
+  const [rouletteSettings, setRouletteSettings] = useState<DartRouletteSettings>({
+    backfireSips: 1,
+    singleSips: 1,
+    doubleSips: 2,
+    tripleAction: 'down-it',
+    tripleSips: 5,
+    jailbreakAction: 'finish',
+  });
+  // Fixed tournament settings - defaulting to round robin
+  const tournamentSettings: TournamentSettings = {
+    format: 'round-robin',
+    thirdPlace: 'none',
+  };
 
-  // Load appearance settings from localStorage
+  // Tournament state for round-robin
+  const [tournament, setTournament] = useState<RoundRobinTournament | null>(null);
+  const [showStandings, setShowStandings] = useState(false);
+  const [showTournamentIntro, setShowTournamentIntro] = useState(false);
+  const [showMatchIntro, setShowMatchIntro] = useState(false);
+  const [currentTournamentGame, setCurrentTournamentGame] = useState<'x01' | 'around-the-clock' | 'killer' | null>(null);
+  const [pendingMatchPlayers, setPendingMatchPlayers] = useState<{ player1: typeof activePlayers[0], player2: typeof activePlayers[0] } | null>(null);
+
   const loadAppearanceSettings = (): AppearanceSettings => {
     try {
       const saved = localStorage.getItem('autocade-appearance');
@@ -129,6 +160,20 @@ function App() {
     });
   }, [simulateState]);
 
+  // Memoized callback for starting a new leg (resets autodarts state)
+  // This prevents the callback from being recreated on every render,
+  // which would cause the countdown timer in X01Game to reset
+  const handleLegStart = useCallback(() => {
+    simulateState({
+      connected: true,
+      running: true,
+      status: 'Takeout finished',
+      event: 'Reset',
+      numThrows: 0,
+      throws: [],
+    });
+  }, [simulateState]);
+
   // Players for the current game instance (ordered)
   const [gamePlayers, setGamePlayers] = useState<any[]>([]);
 
@@ -136,6 +181,41 @@ function App() {
     let orderedPlayers = [...activePlayers];
     let startingOrder = 'listed';
 
+    // For tournament mode with round-robin format
+    if (gameMode === 'tournament' && tournamentSettings.format === 'round-robin') {
+      // Initialize tournament if not already initialized or if starting fresh
+      let currentTournament = tournament;
+      const isNewTournament = !currentTournament || currentTournament.isComplete;
+
+      if (isNewTournament) {
+        currentTournament = initializeTournament(activePlayers);
+        setTournament(currentTournament);
+      }
+
+      setCurrentTournamentGame(gameId as 'x01' | 'around-the-clock' | 'killer');
+
+      // Get players for first match
+      const firstMatch = currentTournament!.matches[currentTournament!.currentMatchIndex];
+      if (firstMatch) {
+        const player1 = activePlayers.find(p => p.id === firstMatch.player1Id);
+        const player2 = activePlayers.find(p => p.id === firstMatch.player2Id);
+        if (player1 && player2) {
+          setPendingMatchPlayers({ player1, player2 });
+        }
+      }
+
+      // Show tournament intro for new tournament, or match intro for continuing
+      if (isNewTournament) {
+        setShowTournamentIntro(true);
+      } else {
+        setShowMatchIntro(true);
+      }
+
+      // Don't start game directly - the intro complete handlers will do that
+      return;
+    }
+
+    // Quick play mode - use normal player ordering
     if (gameId === 'x01') {
       startingOrder = x01Settings.startingOrder;
     } else if (gameId === 'around-the-clock') {
@@ -156,7 +236,6 @@ function App() {
 
     setGamePlayers(orderedPlayers);
     handleReset();
-    wled.gameOn();
 
     if (gameId === 'x01') {
       setCurrentView('x01-game');
@@ -164,10 +243,104 @@ function App() {
       setCurrentView('atc-game');
     } else if (gameId === 'killer') {
       setCurrentView('killer-game');
+    } else if (gameId === 'dart-roulette') {
+      setCurrentView('roulette-game');
     } else {
       setCurrentView('game');
     }
   };
+
+  // Handle tournament match completion
+  const handleTournamentMatchComplete = useCallback((winnerId: string) => {
+    if (gameMode !== 'tournament') return;
+
+    // Use functional update to get latest tournament state
+    setTournament(currentTournament => {
+      if (!currentTournament) return currentTournament;
+
+      const updatedTournament = recordMatchResult(currentTournament, winnerId);
+      setShowStandings(true);
+      return updatedTournament;
+    });
+  }, [gameMode]);
+
+  // Start the actual game after match intro completes
+  const handleMatchIntroComplete = useCallback(() => {
+    setShowMatchIntro(false);
+    if (pendingMatchPlayers && currentTournamentGame) {
+      setGamePlayers([pendingMatchPlayers.player1, pendingMatchPlayers.player2]);
+      handleReset();
+
+      if (currentTournamentGame === 'x01') {
+        setCurrentView('x01-game');
+      } else if (currentTournamentGame === 'around-the-clock') {
+        setCurrentView('atc-game');
+      } else if (currentTournamentGame === 'killer') {
+        setCurrentView('killer-game');
+      }
+    }
+  }, [pendingMatchPlayers, currentTournamentGame, handleReset]);
+
+  // Continue to next tournament match - use functional update to get latest tournament state
+  const handleNextTournamentMatch = useCallback(() => {
+    setShowStandings(false);
+
+    // Use functional update to get latest tournament state
+    setTournament(currentTournament => {
+      if (!currentTournament || currentTournament.isComplete || !currentTournamentGame) {
+        return currentTournament;
+      }
+
+      // Get the next match
+      const nextMatch = currentTournament.matches[currentTournament.currentMatchIndex];
+      if (nextMatch) {
+        const player1 = activePlayers.find(p => p.id === nextMatch.player1Id);
+        const player2 = activePlayers.find(p => p.id === nextMatch.player2Id);
+        if (player1 && player2) {
+          setPendingMatchPlayers({ player1, player2 });
+          setShowMatchIntro(true);
+        }
+      }
+
+      return currentTournament;
+    });
+  }, [currentTournamentGame, activePlayers]);
+
+  // Start tournament - show tournament intro first, then match intro
+  const handleTournamentIntroComplete = useCallback(() => {
+    setShowTournamentIntro(false);
+
+    // Use functional update to get latest tournament state
+    setTournament(currentTournament => {
+      if (!currentTournament || !currentTournamentGame) {
+        return currentTournament;
+      }
+
+      // Show match intro for first match
+      const firstMatch = currentTournament.matches[currentTournament.currentMatchIndex];
+      if (firstMatch) {
+        const player1 = activePlayers.find(p => p.id === firstMatch.player1Id);
+        const player2 = activePlayers.find(p => p.id === firstMatch.player2Id);
+        if (player1 && player2) {
+          setPendingMatchPlayers({ player1, player2 });
+          setShowMatchIntro(true);
+        }
+      }
+
+      return currentTournament;
+    });
+  }, [currentTournamentGame, activePlayers]);
+
+  // End tournament and return to menu
+  const handleEndTournament = useCallback(() => {
+    setShowStandings(false);
+    setShowTournamentIntro(false);
+    setShowMatchIntro(false);
+    setTournament(null);
+    setCurrentTournamentGame(null);
+    setPendingMatchPlayers(null);
+    setCurrentView('game-selector');
+  }, []);
 
   const handleSelectGame = (gameId: string, mode: 'quick-play' | 'tournament') => {
     // TODO: Handle tournament mode differently
@@ -181,6 +354,8 @@ function App() {
       setCurrentView('atc-rules');
     } else if (gameId === 'killer') {
       setCurrentView('killer-rules');
+    } else if (gameId === 'dart-roulette') {
+      setCurrentView('roulette-rules');
     } else {
       // Other games not implemented yet - just show generic game
       setGamePlayers(activePlayers); // Default to generic active players for others
@@ -298,16 +473,8 @@ function App() {
               handleReset();
               setCurrentView('x01-rules');
             }}
-            onLegStart={() => {
-              simulateState({
-                connected: true,
-                running: true,
-                status: 'Takeout finished',
-                event: 'Reset',
-                numThrows: 0,
-                throws: [],
-              });
-            }}
+            onLegStart={handleLegStart}
+            onMatchComplete={gameMode === 'tournament' ? handleTournamentMatchComplete : undefined}
             themeGlow={currentTheme?.glow}
             gameViewScale={appearance.gameViewScale}
           />
@@ -470,6 +637,50 @@ function App() {
             </div>
           </div>
         );
+      case 'roulette-rules':
+        return (
+          <div className="flex flex-col gap-6">
+            <div className="flex items-stretch gap-6">
+              <DartRouletteRules
+                onSettingsChange={setRouletteSettings}
+                initialSettings={rouletteSettings}
+                accentClass={currentTheme?.accent}
+                accentBorderClass={currentTheme?.accentBorder}
+              />
+              <div className="shrink-0 min-w-80 flex flex-col p-8 bg-white/5 border border-white/10 rounded-xl overflow-hidden">
+                <div className="flex-1 relative min-h-0">
+                  <div className="absolute inset-0 overflow-y-auto">
+                    <PlayerConfigContent
+                      players={players}
+                      onAddPlayer={addPlayer}
+                      onRemovePlayer={removePlayer}
+                      onUpdateName={updatePlayerName}
+                      onUpdatePhoto={updatePlayerPhoto}
+                      onUpdateVictoryVideo={updateVictoryVideo}
+                      onToggleActive={togglePlayerActive}
+                      onReorderPlayers={reorderPlayers}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            {/* Back / Start buttons */}
+            <div className="flex w-full justify-between gap-4">
+              <button
+                onClick={() => setCurrentView('game-selector')}
+                className="px-6 py-3 text-sm text-zinc-400 hover:text-white transition-colors bg-white/5 hover:bg-white/10 rounded-lg border border-white/10"
+              >
+                ← Back
+              </button>
+              <button
+                onClick={() => handleStartGame('dart-roulette')}
+                className={`px-6 py-3 ${currentTheme?.accent || 'bg-amber-500/80'} ${currentTheme?.accentBorder || 'border-amber-400/50'} text-white font-bold rounded-lg hover:brightness-110 transition-all text-sm backdrop-blur-md border`}
+              >
+                Start Game 🎯
+              </button>
+            </div>
+          </div>
+        );
       case 'killer-game':
         return (
           <KillerGame
@@ -480,6 +691,21 @@ function App() {
             onPlayAgain={() => {
               handleReset();
               setCurrentView('killer-rules');
+            }}
+            gameViewScale={appearance.gameViewScale}
+            themeGlow={currentTheme?.glow}
+          />
+        );
+      case 'roulette-game':
+        return (
+          <DartRouletteGame
+            key={gameKey}
+            state={latestState}
+            players={gamePlayers}
+            settings={rouletteSettings}
+            onPlayAgain={() => {
+              handleReset();
+              setCurrentView('game-selector');
             }}
             gameViewScale={appearance.gameViewScale}
             themeGlow={currentTheme?.glow}
@@ -526,6 +752,7 @@ function App() {
                     {currentView === 'x01-game' && 'X01'}
                     {currentView === 'atc-game' && 'Around The Clock'}
                     {currentView === 'killer-game' && 'Killer'}
+                    {currentView === 'roulette-game' && 'Dart Roulette'}
                   </div>
                 </div>
               )}
@@ -574,16 +801,20 @@ function App() {
           )}
 
           {/* Quit Button - only during active game */}
-          {(currentView === 'x01-game' || currentView === 'atc-game' || currentView === 'killer-game') && (
+          {(currentView === 'x01-game' || currentView === 'atc-game' || currentView === 'killer-game' || currentView === 'roulette-game') && (
             <button
               onClick={() => {
                 if (showQuitConfirm) {
-                  // Navigate back to the specific rules page for the current game
-                  if (currentView === 'x01-game') setCurrentView('x01-rules');
-                  else if (currentView === 'atc-game') setCurrentView('atc-rules');
-                  else if (currentView === 'killer-game') setCurrentView('killer-rules');
-                  else setCurrentView('game-selector'); // Fallback
-
+                  // If in tournament mode, cancel the whole tournament
+                  if (gameMode === 'tournament' && tournament) {
+                    handleEndTournament();
+                  } else {
+                    // Navigate back to the specific rules page for the current game
+                    if (currentView === 'x01-game') setCurrentView('x01-rules');
+                    else if (currentView === 'atc-game') setCurrentView('atc-rules');
+                    else if (currentView === 'killer-game') setCurrentView('killer-rules');
+                    else setCurrentView('game-selector'); // Fallback
+                  }
                   setShowQuitConfirm(false);
                 } else {
                   setShowQuitConfirm(true);
@@ -625,14 +856,16 @@ function App() {
 
         </div>
 
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col items-center justify-center">
-          {/* Player List - shown above game content */}
-          {showPlayerList && activePlayers.length > 0 && (
-            <PlayerList players={activePlayers} />
-          )}
-          {renderMainContent()}
-        </div>
+        {/* Main Content - hidden during intros */}
+        {!showTournamentIntro && !showMatchIntro && (
+          <div className="flex-1 flex flex-col items-center justify-center">
+            {/* Player List - shown above game content */}
+            {showPlayerList && activePlayers.length > 0 && (
+              <PlayerList players={activePlayers} />
+            )}
+            {renderMainContent()}
+          </div>
+        )}
 
         {/* Powered by Autodarts - bottom left */}
         <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 opacity-50">
@@ -644,15 +877,45 @@ function App() {
       </div>
 
       {/* Manual Entry Drawer - only during active games */}
-      {(currentView === 'x01-game' || currentView === 'atc-game' || currentView === 'killer-game') && (
+      {(currentView === 'x01-game' || currentView === 'atc-game' || currentView === 'killer-game' || currentView === 'roulette-game') && (
         <ManualEntryDrawer
           currentState={latestState}
           onSimulateThrow={simulateState}
         />
       )}
 
+      {/* Tournament Standings Overlay */}
+      {showStandings && tournament && (
+        <TournamentStandings
+          standings={getSortedStandings(tournament)}
+          currentMatchNumber={tournament.currentMatchIndex}
+          totalMatches={tournament.matches.length}
+          isComplete={tournament.isComplete}
+          onNextMatch={handleNextTournamentMatch}
+          onEndTournament={handleEndTournament}
+          playerPhotos={new Map(players.map(p => [p.id, p.photo || '']))}
+        />
+      )}
 
+      {/* Tournament Intro Overlay */}
+      {showTournamentIntro && tournament && (
+        <TournamentIntro
+          players={activePlayers}
+          totalMatches={tournament.matches.length}
+          onComplete={handleTournamentIntroComplete}
+        />
+      )}
 
+      {/* Match Intro Overlay */}
+      {showMatchIntro && pendingMatchPlayers && tournament && (
+        <MatchIntro
+          matchNumber={tournament.currentMatchIndex + 1}
+          totalMatches={tournament.matches.length}
+          player1={pendingMatchPlayers.player1}
+          player2={pendingMatchPlayers.player2}
+          onComplete={handleMatchIntroComplete}
+        />
+      )}
 
 
 

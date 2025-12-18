@@ -133,13 +133,10 @@ export function KillerGame({ state, settings, players, onPlayAgain, gameViewScal
                     new Audio(`/sounds/Northern_Terry/killer/dead${suffix}.mp3`).play().catch(() => { });
                     wled.elimination();
                 } else if (eventsToProcess.some(e => e.includes('Became KILLER'))) {
-                    const soundNum = Math.floor(Math.random() * 5); // 0-4
-                    const suffixes = ['', '1', '2', '3', '5'];
+                    const soundNum = Math.floor(Math.random() * 4); // 0-3
+                    const suffixes = ['', '1', '2', '3'];
                     new Audio(`/sounds/Northern_Terry/killer/killer${suffixes[soundNum]}.mp3`).play().catch(() => { });
                     wled.killerActivation();
-                } else if (eventsToProcess.some(e => e.includes('Hit') && e.includes('-'))) {
-                    // Life taken but not eliminated
-                    wled.killerLifeTaken();
                 }
                 // Check for winner
                 if (eventsToProcess.some(e => e.includes('wins'))) {

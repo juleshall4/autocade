@@ -167,9 +167,14 @@ export const processKillerThrow = (
                         events.push(`Hit Killer ${owner.name}! -${damage}`);
                     }
                     if (settings.killerVsKiller === 'status' || settings.killerVsKiller === 'both') {
-                        owner.isKiller = false;
-                        owner.charge = 0;
-                        events.push(`${owner.name} lost Killer status!`);
+                        // Only reduce charge by damage amount, not all at once
+                        owner.charge = Math.max(0, owner.charge - damage);
+                        if (owner.charge <= 0) {
+                            owner.isKiller = false;
+                            events.push(`${owner.name} lost Killer status!`);
+                        } else {
+                            events.push(`${owner.name} charge -${damage} (${owner.charge}/3)`);
+                        }
                     }
                 } else {
                     // Normal hit on non-killer

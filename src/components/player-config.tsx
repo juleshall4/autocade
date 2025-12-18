@@ -78,7 +78,7 @@ export function PlayerConfigContent({
             <div className="w-full h-full flex flex-col min-h-0">
                 {/* Player list */}
                 <div className="space-y-3 overflow-y-auto flex-1 min-h-0">
-                    {players.map((player, index) => {
+                    {players.map((player) => {
                         const isExpanded = expandedPlayerId === player.id;
 
                         return (

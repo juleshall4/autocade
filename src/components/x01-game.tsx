@@ -15,6 +15,7 @@ interface X01GameProps {
     players: Player[];
     onPlayAgain: () => void;
     onLegStart: () => void;
+    onMatchComplete?: (winnerId: string) => void;
     themeGlow?: string;
     gameViewScale?: number;
 }
@@ -72,7 +73,7 @@ function createMatchData(playerId: string): PlayerMatchData {
     };
 }
 
-export function X01Game({ state, settings, players, onPlayAgain, onLegStart, themeGlow, gameViewScale = 100 }: X01GameProps) {
+export function X01Game({ state, settings, players, onPlayAgain, onLegStart, onMatchComplete, themeGlow, gameViewScale = 100 }: X01GameProps) {
     const { baseScore, inMode, outMode, matchMode, legsToWin, setsToWin } = settings;
 
     // Caller for score announcements
@@ -142,6 +143,16 @@ export function X01Game({ state, settings, players, onPlayAgain, onLegStart, the
             caller.callGameOn();
         }
     }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+    // Notify parent when match is complete (for tournament mode)
+    // Use ref to prevent multiple calls
+    const matchCompleteCalledRef = useRef(false);
+    useEffect(() => {
+        if (matchWinnerId && onMatchComplete && !matchCompleteCalledRef.current) {
+            matchCompleteCalledRef.current = true;
+            onMatchComplete(matchWinnerId);
+        }
+    }, [matchWinnerId, onMatchComplete]);
 
     // Countdown timer between legs
     useEffect(() => {

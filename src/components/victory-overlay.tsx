@@ -7,10 +7,10 @@ interface VictoryOverlayProps {
     onComplete: () => void;
 }
 
-const DISPLAY_DURATION = 5000; // 5 seconds
+const DISPLAY_DURATION = 3000; // 3 seconds
 
 export function VictoryOverlay({ winner, onComplete }: VictoryOverlayProps) {
-    const [countdown, setCountdown] = useState(5);
+    const [countdown, setCountdown] = useState(3);
     const onCompleteRef = useRef(onComplete);
 
     // Update ref when prop changes

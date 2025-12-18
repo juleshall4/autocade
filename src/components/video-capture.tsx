@@ -6,7 +6,7 @@ interface VideoCaptureProps {
     onClose: () => void;
 }
 
-const RECORDING_DURATION = 5000; // 5 seconds
+const RECORDING_DURATION = 3000; // 3 seconds
 
 export function VideoCapture({ onCapture, onClose }: VideoCaptureProps) {
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -98,7 +98,7 @@ export function VideoCapture({ onCapture, onClose }: VideoCaptureProps) {
         mediaRecorderRef.current = mediaRecorder;
         mediaRecorder.start();
         setIsRecording(true);
-        setCountdown(5);
+        setCountdown(3);
 
         setTimeout(() => {
             if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
@@ -160,7 +160,7 @@ export function VideoCapture({ onCapture, onClose }: VideoCaptureProps) {
                 </div>
 
                 <p className="text-zinc-400 text-sm mb-4">
-                    Record a 5-second victory dance that plays when you win!
+                    Record a 3-second victory dance that plays when you win!
                 </p>
 
                 {/* Error message */}

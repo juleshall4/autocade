@@ -163,9 +163,6 @@ function createEventTrigger(
 }
 
 export const wled = {
-    // General
-    gameOn: createEventTrigger('gameOn', 'gameOn', (d) => triggerFallbackColor([0, 255, 0], 1, d), 3000),
-
     // X01
     checkout: createEventTrigger('x01Checkout', 'x01Checkout', (d) => triggerFallbackRainbow(1, d), 5000),
     bust: createEventTrigger('x01Bust', 'x01Bust', (d) => triggerFallbackColor([255, 0, 0], 1, d), 2000),
@@ -173,13 +170,18 @@ export const wled = {
 
     // Killer
     killerActivation: createEventTrigger('killerActivation', 'killerActivation', (d) => triggerFallbackColor([255, 0, 0], 1, d), 3000),
-    killerLifeTaken: createEventTrigger('killerLifeTaken', 'killerLifeTaken', (d) => triggerFallbackColor([255, 50, 0], 1, d), 2000),
     elimination: createEventTrigger('killerElimination', 'killerElimination', (d) => triggerFallbackColor([255, 100, 0], 1, d), 3000),
     killerWin: createEventTrigger('killerWin', 'killerWin', (d) => triggerFallbackRainbow(1, d), 5000),
 
     // Around The Clock
     targetHit: createEventTrigger('atcTargetHit', 'atcTargetHit', (d) => triggerFallbackColor([0, 255, 0], 1, d), 500),
     atcWin: createEventTrigger('atcWin', 'atcWin', (d) => triggerFallbackRainbow(1, d), 5000),
+
+    // Dart Roulette
+    rouletteSpin: createEventTrigger('rouletteSpin', 'rouletteSpin', (d) => triggerFallbackColor([255, 165, 0], 1, d), 6000),
+    rouletteHit: createEventTrigger('rouletteHit', 'rouletteHit', (d) => triggerFallbackColor([0, 255, 0], 1, d), 2000),
+    rouletteMiss: createEventTrigger('rouletteMiss', 'rouletteMiss', (d) => triggerFallbackColor([255, 0, 0], 1, d), 2000),
+    rouletteWin: createEventTrigger('rouletteWin', 'rouletteWin', (d) => triggerFallbackRainbow(1, d), 5000),
 
     // Generic (legacy)
     gameStart: () => triggerFallbackColor([0, 255, 0], 1, 2000),

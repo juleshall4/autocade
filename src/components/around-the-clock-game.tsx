@@ -123,8 +123,18 @@ export function AroundTheClockGame({
 
     // Check if a throw hits the target and return multiplier (0 = miss, 1 = single, 2 = double, 3 = triple)
     const getHitMultiplier = useCallback((throwName: string, target: number): number => {
-        // Parse the throw name (e.g., "S20", "D25", "T19")
+        // Parse the throw name (e.g., "S20", "D25", "T19", "25" for outer bull)
         if (throwName === 'Miss') return 0;
+
+        // Handle bull directly if it comes as just "25" (outer bull without prefix)
+        if (throwName === '25' || throwName === 'Bull') {
+            if (target !== 25) return 0;
+            // '25' without prefix is outer bull (single)
+            if (settings.bullMode === 'inner') {
+                return 0; // Inner only mode: '25' without D prefix doesn't count
+            }
+            return 1; // Both mode: outer bull counts
+        }
 
         const match = throwName.match(/^([STD])(\d+)$/);
         if (!match) return 0;

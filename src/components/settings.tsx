@@ -47,33 +47,37 @@ interface CallerSettings {
 interface WledEventPresets {
     // Default lighting to revert to
     default: number | null;
-    // General
-    gameOn: number | null;
     // X01 events
     x01Checkout: number | null;
     x01Bust: number | null;
     x01OneEighty: number | null;
     // Killer events
     killerActivation: number | null;
-    killerLifeTaken: number | null;
     killerElimination: number | null;
     killerWin: number | null;
     // Around The Clock events
     atcTargetHit: number | null;
     atcWin: number | null;
+    // Dart Roulette events
+    rouletteSpin: number | null;
+    rouletteHit: number | null;
+    rouletteMiss: number | null;
+    rouletteWin: number | null;
 }
 
 interface WledEventDurations {
-    gameOn: number;
     x01Checkout: number;
     x01Bust: number;
     x01OneEighty: number;
     killerActivation: number;
-    killerLifeTaken: number;
     killerElimination: number;
     killerWin: number;
     atcTargetHit: number;
     atcWin: number;
+    rouletteSpin: number;
+    rouletteHit: number;
+    rouletteMiss: number;
+    rouletteWin: number;
 }
 
 export interface WledSettings {
@@ -132,28 +136,32 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
     const loadWledSettings = (): WledSettings => {
         const defaultPresets: WledEventPresets = {
             default: null,
-            gameOn: null,
             x01Checkout: null,
             x01Bust: null,
             x01OneEighty: null,
             killerActivation: null,
-            killerLifeTaken: null,
             killerElimination: null,
             killerWin: null,
             atcTargetHit: null,
             atcWin: null,
+            rouletteSpin: null,
+            rouletteHit: null,
+            rouletteMiss: null,
+            rouletteWin: null,
         };
         const defaultDurations: WledEventDurations = {
-            gameOn: 3,
             x01Checkout: 5,
             x01Bust: 2,
             x01OneEighty: 4,
             killerActivation: 3,
-            killerLifeTaken: 2,
             killerElimination: 3,
             killerWin: 5,
             atcTargetHit: 1,
             atcWin: 5,
+            rouletteSpin: 6,
+            rouletteHit: 2,
+            rouletteMiss: 2,
+            rouletteWin: 5,
         };
         const defaults: WledSettings = {
             enabled: false,
@@ -172,28 +180,32 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
                     ip2: parsed.ip2 ?? defaults.ip2,
                     presets: {
                         default: parsed.presets?.default ?? defaultPresets.default,
-                        gameOn: parsed.presets?.gameOn ?? defaultPresets.gameOn,
                         x01Checkout: parsed.presets?.x01Checkout ?? defaultPresets.x01Checkout,
                         x01Bust: parsed.presets?.x01Bust ?? defaultPresets.x01Bust,
                         x01OneEighty: parsed.presets?.x01OneEighty ?? defaultPresets.x01OneEighty,
                         killerActivation: parsed.presets?.killerActivation ?? defaultPresets.killerActivation,
-                        killerLifeTaken: parsed.presets?.killerLifeTaken ?? defaultPresets.killerLifeTaken,
                         killerElimination: parsed.presets?.killerElimination ?? defaultPresets.killerElimination,
                         killerWin: parsed.presets?.killerWin ?? defaultPresets.killerWin,
                         atcTargetHit: parsed.presets?.atcTargetHit ?? defaultPresets.atcTargetHit,
                         atcWin: parsed.presets?.atcWin ?? defaultPresets.atcWin,
+                        rouletteSpin: parsed.presets?.rouletteSpin ?? defaultPresets.rouletteSpin,
+                        rouletteHit: parsed.presets?.rouletteHit ?? defaultPresets.rouletteHit,
+                        rouletteMiss: parsed.presets?.rouletteMiss ?? defaultPresets.rouletteMiss,
+                        rouletteWin: parsed.presets?.rouletteWin ?? defaultPresets.rouletteWin,
                     },
                     durations: {
-                        gameOn: parsed.durations?.gameOn ?? defaultDurations.gameOn,
                         x01Checkout: parsed.durations?.x01Checkout ?? defaultDurations.x01Checkout,
                         x01Bust: parsed.durations?.x01Bust ?? defaultDurations.x01Bust,
                         x01OneEighty: parsed.durations?.x01OneEighty ?? defaultDurations.x01OneEighty,
                         killerActivation: parsed.durations?.killerActivation ?? defaultDurations.killerActivation,
-                        killerLifeTaken: parsed.durations?.killerLifeTaken ?? defaultDurations.killerLifeTaken,
                         killerElimination: parsed.durations?.killerElimination ?? defaultDurations.killerElimination,
                         killerWin: parsed.durations?.killerWin ?? defaultDurations.killerWin,
                         atcTargetHit: parsed.durations?.atcTargetHit ?? defaultDurations.atcTargetHit,
                         atcWin: parsed.durations?.atcWin ?? defaultDurations.atcWin,
+                        rouletteSpin: parsed.durations?.rouletteSpin ?? defaultDurations.rouletteSpin,
+                        rouletteHit: parsed.durations?.rouletteHit ?? defaultDurations.rouletteHit,
+                        rouletteMiss: parsed.durations?.rouletteMiss ?? defaultDurations.rouletteMiss,
+                        rouletteWin: parsed.durations?.rouletteWin ?? defaultDurations.rouletteWin,
                     },
                 };
             }
@@ -734,34 +746,6 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
                                 <div className="space-y-2 pt-3 border-t border-white/10">
                                     <div className="text-white font-medium text-sm mb-3">Game Event Presets</div>
 
-                                    {/* Game On */}
-                                    <div className="bg-white/5 rounded-lg border border-white/10 p-3 space-y-1">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span className="text-zinc-200 font-medium text-sm">Game On</span>
-                                            <select
-                                                value={wledSettings.presets.gameOn ?? ''}
-                                                onChange={(e) => updateWledPreset('gameOn', e.target.value ? parseInt(e.target.value) : null)}
-                                                className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
-                                            >
-                                                <option value="" className="bg-zinc-900">None</option>
-                                                {wledPresetList.map(p => (
-                                                    <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <input
-                                                type="range"
-                                                min="1"
-                                                max="10"
-                                                value={wledSettings.durations.gameOn}
-                                                onChange={(e) => updateWledDuration('gameOn', parseInt(e.target.value))}
-                                                className="flex-1 accent-blue-500"
-                                            />
-                                            <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.gameOn}s</span>
-                                        </div>
-                                    </div>
-
                                     {/* X01 Accordion */}
                                     <details className="group bg-white/5 rounded-lg border border-white/10">
                                         <summary className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/5">
@@ -917,6 +901,124 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
                                         </div>
                                     </details>
 
+                                    {/* Dart Roulette Accordion */}
+                                    <details className="group bg-white/5 rounded-lg border border-white/10">
+                                        <summary className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/5">
+                                            <span className="text-zinc-200 font-medium text-sm">Dart Roulette</span>
+                                            <span className="text-zinc-500 text-xs group-open:rotate-180 transition-transform">▼</span>
+                                        </summary>
+                                        <div className="p-3 pt-0 space-y-4 border-t border-white/10">
+                                            {/* Spin */}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-zinc-300 text-sm">Spin</span>
+                                                    <select
+                                                        value={wledSettings.presets.rouletteSpin ?? ''}
+                                                        onChange={(e) => updateWledPreset('rouletteSpin', e.target.value ? parseInt(e.target.value) : null)}
+                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                                    >
+                                                        <option value="" className="bg-zinc-900">None</option>
+                                                        {wledPresetList.map(p => (
+                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="10"
+                                                        value={wledSettings.durations.rouletteSpin}
+                                                        onChange={(e) => updateWledDuration('rouletteSpin', parseInt(e.target.value))}
+                                                        className="flex-1 accent-blue-500"
+                                                    />
+                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.rouletteSpin}s</span>
+                                                </div>
+                                            </div>
+                                            {/* Hit */}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-zinc-300 text-sm">Hit</span>
+                                                    <select
+                                                        value={wledSettings.presets.rouletteHit ?? ''}
+                                                        onChange={(e) => updateWledPreset('rouletteHit', e.target.value ? parseInt(e.target.value) : null)}
+                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                                    >
+                                                        <option value="" className="bg-zinc-900">None</option>
+                                                        {wledPresetList.map(p => (
+                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="10"
+                                                        value={wledSettings.durations.rouletteHit}
+                                                        onChange={(e) => updateWledDuration('rouletteHit', parseInt(e.target.value))}
+                                                        className="flex-1 accent-blue-500"
+                                                    />
+                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.rouletteHit}s</span>
+                                                </div>
+                                            </div>
+                                            {/* Miss */}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-zinc-300 text-sm">Miss (Backfire)</span>
+                                                    <select
+                                                        value={wledSettings.presets.rouletteMiss ?? ''}
+                                                        onChange={(e) => updateWledPreset('rouletteMiss', e.target.value ? parseInt(e.target.value) : null)}
+                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                                    >
+                                                        <option value="" className="bg-zinc-900">None</option>
+                                                        {wledPresetList.map(p => (
+                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="10"
+                                                        value={wledSettings.durations.rouletteMiss}
+                                                        onChange={(e) => updateWledDuration('rouletteMiss', parseInt(e.target.value))}
+                                                        className="flex-1 accent-blue-500"
+                                                    />
+                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.rouletteMiss}s</span>
+                                                </div>
+                                            </div>
+                                            {/* Victory */}
+                                            <div className="space-y-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="text-zinc-300 text-sm">Victory</span>
+                                                    <select
+                                                        value={wledSettings.presets.rouletteWin ?? ''}
+                                                        onChange={(e) => updateWledPreset('rouletteWin', e.target.value ? parseInt(e.target.value) : null)}
+                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
+                                                    >
+                                                        <option value="" className="bg-zinc-900">None</option>
+                                                        {wledPresetList.map(p => (
+                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input
+                                                        type="range"
+                                                        min="1"
+                                                        max="10"
+                                                        value={wledSettings.durations.rouletteWin}
+                                                        onChange={(e) => updateWledDuration('rouletteWin', parseInt(e.target.value))}
+                                                        className="flex-1 accent-blue-500"
+                                                    />
+                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.rouletteWin}s</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </details>
+
                                     {/* Killer Accordion */}
                                     <details className="group bg-white/5 rounded-lg border border-white/10">
                                         <summary className="flex items-center justify-between p-3 cursor-pointer hover:bg-white/5">
@@ -949,33 +1051,6 @@ export function SettingsContent({ appearance, onAppearanceChange }: SettingsProp
                                                         className="flex-1 accent-blue-500"
                                                     />
                                                     <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.killerActivation}s</span>
-                                                </div>
-                                            </div>
-                                            {/* Life Taken */}
-                                            <div className="space-y-1">
-                                                <div className="flex items-center justify-between gap-2">
-                                                    <span className="text-zinc-300 text-sm">Life Taken</span>
-                                                    <select
-                                                        value={wledSettings.presets.killerLifeTaken ?? ''}
-                                                        onChange={(e) => updateWledPreset('killerLifeTaken', e.target.value ? parseInt(e.target.value) : null)}
-                                                        className="flex-1 max-w-[120px] bg-white/10 text-white px-2 py-1 rounded text-xs border border-white/10 outline-none"
-                                                    >
-                                                        <option value="" className="bg-zinc-900">None</option>
-                                                        {wledPresetList.map(p => (
-                                                            <option key={p.id} value={p.id} className="bg-zinc-900">{p.name}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <input
-                                                        type="range"
-                                                        min="1"
-                                                        max="10"
-                                                        value={wledSettings.durations.killerLifeTaken}
-                                                        onChange={(e) => updateWledDuration('killerLifeTaken', parseInt(e.target.value))}
-                                                        className="flex-1 accent-blue-500"
-                                                    />
-                                                    <span className="text-zinc-400 text-xs w-6">{wledSettings.durations.killerLifeTaken}s</span>
                                                 </div>
                                             </div>
                                             {/* Elimination */}
