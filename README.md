@@ -10,7 +10,7 @@ Autocade is a **more stylised and fun** alternative to the standard Autodarts in
 
 Plus, Autocade includes game modes **not available in Autodarts** - like Killer - giving you more ways to play with friends.
 
-> 🚀 **More games coming soon!** Autocade is actively being developed with new game modes on the roadmap.
+> 🚀 **More games coming soon** Autocade is actively being developed with new game modes on the roadmap.
 
 ## Features
 
