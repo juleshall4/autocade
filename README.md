@@ -6,6 +6,10 @@ A stylish arcade-style scoreboard for [Autodarts](https://autodarts.io). Flashy 
 
 > ⚠️ **Work in Progress** — Autocade is under active development. There may be bugs, but it's fully usable for fun sessions. Performance optimizations coming soon!
 
+<p align="center">
+  <img src="screenshots/game-selector.png" width="80%" />
+</p>
+
 ---
 
 ## Game Modes
