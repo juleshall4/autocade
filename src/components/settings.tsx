@@ -18,6 +18,7 @@ export const THEMES: Theme[] = [
     { id: 'forest', name: 'Forest', gradient: 'bg-gradient-to-br from-zinc-950 via-emerald-950 to-zinc-900', preview: '#10b981', accent: 'bg-emerald-500/80', accentBorder: 'border-emerald-400/50', glow: 'rgba(16, 185, 129, 0.7)' },
     { id: 'crimson', name: 'Crimson', gradient: 'bg-gradient-to-br from-zinc-950 via-rose-950 to-zinc-900', preview: '#f43f5e', accent: 'bg-rose-500/80', accentBorder: 'border-rose-400/50', glow: 'rgba(244, 63, 94, 0.7)' },
     { id: 'amber', name: 'Amber', gradient: 'bg-gradient-to-br from-zinc-950 via-amber-950 to-zinc-900', preview: '#f59e0b', accent: 'bg-amber-500/80', accentBorder: 'border-amber-400/50', glow: 'rgba(245, 158, 11, 0.7)' },
+    { id: 'beaver', name: 'Beaver', gradient: 'bg-gradient-to-br from-zinc-950 via-amber-900 to-orange-950', preview: '#d97706', accent: 'bg-amber-600/80', accentBorder: 'border-orange-400/50', glow: 'rgba(217, 119, 6, 0.7)' },
 ];
 
 export interface AppearanceSettings {
