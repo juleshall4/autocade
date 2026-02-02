@@ -16,10 +16,19 @@ Plus, Autocade includes game modes **not available in Autodarts** - like Killer 
 
 ### 🎯 Game Modes
 - **X01** - Classic 501/301 with configurable starting scores, Double In/Out, Single Out options
+
+| Game View | Point Scoring | Checkout Suggestion | Game Setup |
+|:---:|:---:|:---:|:---:|
+| ![X01 Game View](screenshots/x01-game-view.png) | ![X01 Scoring](screenshots/x01-scoring.png) | ![X01 Checkout](screenshots/x01-checkout.png) | ![X01 Rules](screenshots/x01-rules.png) |
+
 - **Around the Clock** - Hit 1-20 (+ optional Bull) in sequence with multiple modes:
   - Single, Double, Triple, or Full Board
   - Configurable hits required per target
   - Multiplier mode for faster progression
+
+| Target Highlight | Progression | Game Setup |
+|:---:|:---:|:---:|
+| ![ATC Game View](screenshots/atc-game-view.png) | ![ATC Scoring](screenshots/atc-scoring.png) | ![ATC Rules](screenshots/atc-rules.png) |
 - **Killer** *(coming soon)* - Classic pub darts game not available on Autodarts
 
 ### 👥 Player Management
