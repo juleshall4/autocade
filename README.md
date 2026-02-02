@@ -33,6 +33,16 @@ Plus, Autocade includes game modes **not available in Autodarts** - like Killer 
 - Adjustable UI scaling for player list and game view
 - Fullscreen mode support
 
+#### Theme Gallery
+
+| Midnight | Ocean | Purple Haze |
+|:---:|:---:|:---:|
+| ![Midnight](screenshots/theme-midnight.png) | ![Ocean](screenshots/theme-ocean.png) | ![Purple Haze](screenshots/theme-purple-haze.png) |
+
+| Forest | Crimson | Amber |
+|:---:|:---:|:---:|
+| ![Forest](screenshots/theme-forest.png) | ![Crimson](screenshots/theme-crimson.png) | ![Amber](screenshots/theme-amber.png) |
+
 ### 🔊 Caller System
 - Score announcements with voice packs
 - Configurable announcement options:
