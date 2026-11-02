@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import type { AutodartsState } from '../types/autodarts';
+import { normalizeAutodartsState } from '../utils/normalize-autodarts';
 
 export interface LogEntry {
     id: number;
@@ -104,7 +105,8 @@ export const useAutodarts = () => {
 
                     // Extract state from the message wrapper
                     if (message.type === 'state' && message.data && mountedRef.current) {
-                        setLatestState(message.data);
+                        const state = normalizeAutodartsState(message.data);
+                        if (state) setLatestState(state);
                     }
                 } catch (e) {
                     addLog('parse-error', { error: String(e) }, event.data);
